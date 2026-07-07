@@ -1166,52 +1166,45 @@
           family: "nakamoto",
           familyLabel: "Nakamoto Family",
           mechanism:
-            "Nodes (miners) compete to solve cryptographically hard puzzles to validate transactions and secure the network.",
+            "A competitive, computationally-intensive consensus model where miners race to solve a cryptographic puzzle to earn the right to append the next block.",
           steps: [
-            "Transactions are bundled into a block candidate by miners.",
-            "Miners run cryptographic hashing continuously to find a nonce yielding a hash value below the current target difficulty.",
-            "The first miner to find the valid nonce broadcasts the new block to the network.",
-            "Other nodes verify the transactions and the cryptographic proof validity.",
-            "If valid, the block is appended, and the miner receives block rewards + transaction fees.",
+            "Pending transactions are collected into a candidate block by miner nodes.",
+            "Miners repeatedly hash the block header with a changing nonce, searching for an output below a target difficulty threshold.",
+            "The first miner to find a valid hash broadcasts the solved block to the network.",
+            "Other nodes independently verify the hash and the transactions inside the block.",
+            "Once verified, nodes append the block to their local chain and miners restart the race on the new chain tip; the longest valid chain is treated as canonical.",
           ],
           trilemma: {
             scalability: {
-              score: 2,
-              blockTime: "10 min (BTC) / 1 min (DOGE)",
-              tps: "~7 - 15",
+              score: 3,
+              blockTime: "~10 min on Bitcoin, ~13 sec on legacy Ethereum",
+              tps: "3-30",
             },
             security: {
               score: 9,
-              attackResistance: "51% Hashrate Takeover",
+              attackResistance: "51% Attack Threshold",
               details:
-                "Requires controlling a majority of computing power, making mature chains highly secure.",
+                "Extremely resilient due to massive real-world energy/hardware cost required to attack",
             },
             decentralization: {
-              score: 8,
-              nodeCount: "Thousands of miners globally",
+              score: 9,
+              nodeCount: "High node participation, tens of thousands of nodes",
               details:
-                "Open participation, but vulnerable to industrial mining pool concentration.",
+                "Permissionless mining open to anyone with hardware",
             },
           },
           blockchains: [
             {
               name: "Bitcoin",
               symbol: "BTC",
-              why: "Prioritizes absolute censorship resistance and security as a global settlement layer over transaction speed.",
+              why: "Prioritizes maximal security and censorship-resistance as a decentralized store of value, accepting low throughput as a tradeoff.",
               layer: "Layer 1",
               languages: ["Bitcoin Script"],
             },
             {
-              name: "Dogecoin",
-              symbol: "DOGE",
-              why: "Uses Scrypt algorithm with rapid 1-minute blocks to serve as a high-velocity utility transaction token.",
-              layer: "Layer 1",
-              languages: ["C++"],
-            },
-            {
-              name: "Monero",
-              symbol: "XMR",
-              why: "Employs RandomX, an ASIC-resistant PoW designed to keep CPU hardware competitive, keeping mining highly decentralized.",
+              name: "Litecoin",
+              symbol: "LTC",
+              why: "Uses a faster-block-time PoW variant (Scrypt) to function as a lighter, quicker-settling payments-focused counterpart to Bitcoin.",
               layer: "Layer 1",
               languages: ["C++"],
             },
@@ -1223,54 +1216,47 @@
           family: "stake",
           familyLabel: "Staking Family",
           mechanism:
-            "Validators lock up native tokens as collateral. A pseudo-random algorithm selects validators to propose and attest to blocks based on stake size.",
+            "A capital-based consensus model where validators lock up (stake) native tokens as collateral, earning the right to propose and attest to blocks proportional to their stake.",
           steps: [
-            "Validators lock up cryptocurrency (staking) in a smart contract as collateral.",
-            "A random selection mechanism selects a validator to propose the next block (higher stake yields higher selection odds).",
-            "A committee of other active validators attests to the correctness of the proposed block.",
-            "Once quorum attestation is reached, the block is added to the blockchain.",
-            "Validators receive block rewards; bad actions (proposing conflicting blocks, going offline) trigger stakes to be cut ('slashing').",
+            "Validators deposit a minimum stake of the native token into a protocol contract to become eligible.",
+            "The protocol pseudo-randomly selects a validator to propose the next block, weighted by stake size.",
+            "A committee of other validators is randomly selected to attest to the validity of the proposed block.",
+            "Once enough attestations are collected, the block is finalized and added to the chain.",
+            "Validators acting maliciously (e.g., double-signing) have a portion of their stake destroyed, a penalty known as \"slashing.\"",
           ],
           trilemma: {
             scalability: {
               score: 7,
-              blockTime: "12 sec (ETH) / 3 sec (ADA)",
-              tps: "~15 - 100+ (native L1)",
+              blockTime: "~12 sec block time on Ethereum, 15-100 TPS base layer, much higher with rollups",
+              tps: "15-100",
             },
             security: {
               score: 8,
-              attackResistance: "51% Stake Monopolization",
+              attackResistance: "Economic Slashing Deterrent",
               details:
-                "Requires buying a majority of staked supply, driving up prices and self-sabotaging the attacker's capital.",
+                "Attacks are financially self-destructive since malicious stake gets burned",
             },
             decentralization: {
               score: 7,
-              nodeCount: "Tens of thousands",
+              nodeCount: "High validator count, ~1 million+ validators on Ethereum",
               details:
-                "Low hardware barrier, but high capital minimums create staking pool consolidation risks.",
+                "Influenced by staking-pool concentration",
             },
           },
           blockchains: [
             {
               name: "Ethereum",
               symbol: "ETH",
-              why: "Transitioned from PoW via 'The Merge' to reduce power usage by 99.9% and align with rollup-centric scaling.",
+              why: "Transitioned from PoW to PoS (\"The Merge\") to cut energy use drastically while retaining a large, open validator set.",
               layer: "Layer 1",
-              languages: ["Solidity", "Vyper", "Yul"],
+              languages: ["Solidity", "Vyper"],
             },
             {
               name: "Cardano",
               symbol: "ADA",
-              why: "Utilizes Ouroboros PoS, designed with peer-reviewed research for deterministic fees and liquid delegation.",
+              why: "Uses the Ouroboros PoS protocol, built on peer-reviewed academic research emphasizing formal security proofs.",
               layer: "Layer 1",
-              languages: ["Plutus (Haskell)", "Marlowe"],
-            },
-            {
-              name: "Polkadot",
-              symbol: "DOT",
-              why: "Uses Nominated PoS (NPoS) to maximize security sharing across many customized parallel chains (parachains).",
-              layer: "Layer 1",
-              languages: ["Rust (ink!)"],
+              languages: ["Plutus", "Marlowe"],
             },
           ],
         },
@@ -1280,104 +1266,47 @@
           family: "stake",
           familyLabel: "Staking Family",
           mechanism:
-            "Token holders vote to elect a small, fixed group of professional delegates (Witnesses / Block Producers) who validate blocks in turn.",
+            "A representative-democracy consensus model where token holders vote to elect a small set of delegates who take turns producing blocks.",
           steps: [
-            "Users vote for representative delegates using their token balances as weight.",
-            "A fixed number of top delegates (typically 21 to 101) are appointed as the active validator set.",
-            "Elected delegates propose and sign blocks sequentially in a scheduled round-robin system.",
-            "If a delegate behaves maliciously or fails to produce blocks, voters dynamically vote them out.",
-            "Delegates distribute portion of transaction fee rewards back to their voters.",
+            "Token holders cast stake-weighted votes to elect a fixed number of block producers (e.g., 21 on EOS).",
+            "Elected delegates are placed into a rotating schedule to take turns producing blocks.",
+            "Each delegate produces a block during their assigned slot, and other delegates verify it.",
+            "Token holders continuously monitor performance and can vote out underperforming or malicious delegates at any time.",
+            "Block producers typically share a portion of block rewards back with the voters who elected them.",
           ],
           trilemma: {
             scalability: {
               score: 9,
-              blockTime: "0.5 - 3 sec",
-              tps: "2,000 - 10,000+",
+              blockTime: "0.5-3 sec",
+              tps: "1,000-4,000+",
             },
             security: {
               score: 6,
-              attackResistance: "Cartel Collusion & DDoS",
+              attackResistance: "Voter Cartel / Collusion Risk",
               details:
-                "A small validator set is easier to coordinate, compromise, or target with network attacks.",
+                "Small elected validator set makes collusion among delegates a realistic threat",
             },
             decentralization: {
-              score: 4,
-              nodeCount: "Fixed active pool (e.g. 21 - 27)",
+              score: 3,
+              nodeCount: "Very low producer count, ~20-100 active delegates",
               details:
-                "High execution velocity, but results in high governance centralization under whale voters.",
+                "Voting itself is open to all token holders",
             },
           },
           blockchains: [
-            {
-              name: "BNB Chain",
-              symbol: "BNB",
-              why: "Utilizes Proof of Staked Authority (PoSA - DPoS/PoA hybrid) to provide retail dApps with rapid throughput and minimal gas costs.",
-              layer: "Layer 1",
-              languages: ["Solidity"],
-            },
-            {
-              name: "Tron",
-              symbol: "TRX",
-              why: "Coordinates via 27 Super Representatives to power massive high-volume stablecoin transfers and gaming platforms.",
-              layer: "Layer 1",
-              languages: ["Solidity"],
-            },
             {
               name: "EOS",
               symbol: "EOS",
-              why: "Optimized for zero-fee user accounts and high smart contract speeds, relying on 21 block producers.",
+              why: "Built for high-throughput dApps with fee-less user transactions, trading some decentralization for speed.",
               layer: "Layer 1",
               languages: ["C++"],
             },
-          ],
-        },
-        pbft: {
-          id: "pbft",
-          name: "Practical Byzantine Fault Tolerance",
-          family: "byzantine",
-          familyLabel: "Byzantine Family",
-          mechanism:
-            "A low-latency message-passing consensus model where pre-selected nodes exchange state proofs repeatedly to agree on sequential states.",
-          steps: [
-            "A client submits a transaction request to the primary node (leader).",
-            "**Pre-prepare**: The leader assigns a sequence number and multicasts the request to backup nodes.",
-            "**Prepare**: Backup nodes verify the block and multicast a prepare message to all other nodes.",
-            "**Commit**: When a node receives 2f prepare messages (f = tolerated faults), it multicasts a commit message.",
-            "Nodes execute transactions and reply to the client after receiving 2f+1 commit messages, achieving instant finality.",
-          ],
-          trilemma: {
-            scalability: {
-              score: 6,
-              blockTime: "Sub-second / Instant",
-              tps: "1,000 - 5,000+",
-            },
-            security: {
-              score: 8,
-              attackResistance: "33% Byzantine Threshold",
-              details:
-                "Mathematically resilient against malicious action if less than 1/3 of the nodes are faulty.",
-            },
-            decentralization: {
-              score: 2,
-              nodeCount: "Low (< 100 typical)",
-              details:
-                "Requires intense O(N²) communication overhead, making it restricted to small, known groups.",
-            },
-          },
-          blockchains: [
             {
-              name: "Hyperledger Fabric",
-              symbol: "HLF",
-              why: "A private enterprise ledger needing high performance, strict permissioned nodes, and instant finality without a token.",
-              layer: "Layer 1 (Enterprise)",
-              languages: ["Go", "Java", "JavaScript"],
-            },
-            {
-              name: "Zilliqa",
-              symbol: "ZIL",
-              why: "Combines PBFT for transaction processing within sharded committees with PoW for Sybil resistance.",
+              name: "TRON",
+              symbol: "TRX",
+              why: "Optimized for content/media dApps and stablecoin transfers, prioritizing fast, cheap transactions via a small validator set.",
               layer: "Layer 1",
-              languages: ["Scilla"],
+              languages: ["Solidity"],
             },
           ],
         },
@@ -1404,13 +1333,13 @@
               score: 7,
               attackResistance: "Single Node / Private Key Compromise",
               details:
-                "Easier to target individual trusted node keys than a broad network.",
+                "Easier to target individual trusted node keys than a broad network",
             },
             decentralization: {
               score: 2,
-              nodeCount: "Very Low (~10 - 50)",
+              nodeCount: "Very Low node participation, ~10 - 50 nodes",
               details:
-                "Entirely centralized under trusted consortiums, enterprise brands, or core developers.",
+                "Entirely controlled under trusted consortiums",
             },
           },
           blockchains: [
@@ -1427,6 +1356,56 @@
               why: "An Ethereum-aligned sidechain focused on NFT drops, using PoA to cut transaction costs and environmental footprint.",
               layer: "Layer 2 (Sidechain)",
               languages: ["Solidity"],
+            },
+          ],
+        },
+        pbft: {
+          id: "pbft",
+          name: "Practical Byzantine Fault Tolerance",
+          family: "byzantine",
+          familyLabel: "Byzantine Family",
+          mechanism:
+            "A low-latency message-passing consensus model where pre-selected nodes exchange state proofs repeatedly to agree on sequential states.",
+          steps: [
+            "A client submits a transaction request to the primary node (leader).",
+            "Pre-prepare: The leader assigns a sequence number and multicasts the request to backup nodes.",
+            "Prepare: Backup nodes verify the block and multicast a prepare message to all other nodes.",
+            "Commit: When a node receives 2f prepare messages (f = tolerated faults), it multicasts a commit message.",
+            "Nodes execute transactions and reply to the client after receiving 2f+1 commit messages, achieving instant finality.",
+          ],
+          trilemma: {
+            scalability: {
+              score: 6,
+              blockTime: "Sub-second / Instant",
+              tps: "1,000 - 5,000+",
+            },
+            security: {
+              score: 8,
+              attackResistance: "33% Byzantine Threshold",
+              details:
+                "Mathematically resilient against malicious action if less than 1/3 of the nodes are faulty",
+            },
+            decentralization: {
+              score: 2,
+              nodeCount: "Low node participation, typically < 100 nodes",
+              details:
+                "Requires intense O(N²) communication overhead",
+            },
+          },
+          blockchains: [
+            {
+              name: "Hyperledger Fabric",
+              symbol: "HLF",
+              why: "A private enterprise ledger needing high performance, strict permissioned nodes, and instant finality without a token.",
+              layer: "Layer 1 (Enterprise)",
+              languages: ["Go", "Java", "JavaScript"],
+            },
+            {
+              name: "Zilliqa",
+              symbol: "ZIL",
+              why: "Combines PBFT for transaction processing within sharded committees with PoW for Sybil resistance.",
+              layer: "Layer 1",
+              languages: ["Scilla"],
             },
           ],
         },
@@ -1447,20 +1426,20 @@
           trilemma: {
             scalability: {
               score: 10,
-              blockTime: "400 ms (0.4 sec)",
+              blockTime: "400 ms",
               tps: "50,000+",
             },
             security: {
               score: 7,
               attackResistance: "Turbine Transmission / DDoS Target",
               details:
-                "Relies on high-velocity leader propagation; hardware-level vulnerabilities are potential vectors.",
+                "Relies on high-velocity leader propagation; hardware-level vulnerabilities are potential vectors",
             },
             decentralization: {
               score: 5,
-              nodeCount: "Medium (~1,500 - 2,000)",
+              nodeCount: "Medium node participation, ~1,500 - 2,000 nodes",
               details:
-                "Demands high-performance specialized hardware, GPUs, and network links, restricting typical home hosting.",
+                "Due to high hardware demands",
             },
           },
           blockchains: [
@@ -1490,20 +1469,20 @@
           trilemma: {
             scalability: {
               score: 7,
-              blockTime: "10 - 30 sec (Sawtooth)",
+              blockTime: "10 - 30 sec in Sawtooth",
               tps: "100 - 1,000+",
             },
             security: {
               score: 7,
               attackResistance: "Intel SGX/TEE Exploit Resistance",
               details:
-                "Extremely secure unless physical TEE/SGX chip vulnerabilities are discovered and exploited.",
+                "Secure unless physical TEE/SGX chip vulnerabilities are exploited",
             },
             decentralization: {
               score: 6,
-              nodeCount: "Hundreds (Consortium validators)",
+              nodeCount: "Hundreds of consortium validators",
               details:
-                "Low participation barrier since sleep state uses almost zero energy, but dependent on Intel's TEE hardware vendor ecosystem.",
+                "Low participation barrier energy-wise, but dependent on Intel's hardware ecosystem",
             },
           },
           blockchains: [
@@ -1534,19 +1513,19 @@
             scalability: {
               score: 9,
               blockTime: "1 - 2 sec",
-              tps: "4,500+ (per subnet)",
+              tps: "4,500+ TPS per subnet",
             },
             security: {
               score: 9,
               attackResistance: "80% Safety Sybil Resistance",
               details:
-                "Maintains mathematical safety bounds even if up to 80% of nodes act maliciously, surpassing PBFT's 33% limit.",
+                "Maintains mathematical safety bounds even if up to 80% of nodes act maliciously",
             },
             decentralization: {
               score: 8,
               nodeCount: "Thousands of active nodes",
               details:
-                "Low hardware needs allow high node counts, though validator staking requirements exist.",
+                "Low hardware needs allow high node counts, though validator staking requirements exist",
             },
           },
           blockchains: [
@@ -1572,17 +1551,9 @@
           layer: "L1",
         },
         {
-          id: "doge",
-          name: "Dogecoin",
-          symbol: "DOGE",
-          algo: "pow",
-          family: "nakamoto",
-          layer: "L1",
-        },
-        {
-          id: "xmr",
-          name: "Monero",
-          symbol: "XMR",
+          id: "ltc",
+          name: "Litecoin",
+          symbol: "LTC",
           algo: "pow",
           family: "nakamoto",
           layer: "L1",
@@ -1604,17 +1575,9 @@
           layer: "L1",
         },
         {
-          id: "dot",
-          name: "Polkadot",
-          symbol: "DOT",
-          algo: "pos",
-          family: "stake",
-          layer: "L1",
-        },
-        {
-          id: "bnb",
-          name: "BNB Chain",
-          symbol: "BNB",
+          id: "eos",
+          name: "EOS",
+          symbol: "EOS",
           algo: "dpos",
           family: "stake",
           layer: "L1",
@@ -1623,14 +1586,6 @@
           id: "trx",
           name: "Tron",
           symbol: "TRX",
-          algo: "dpos",
-          family: "stake",
-          layer: "L1",
-        },
-        {
-          id: "eos",
-          name: "EOS",
-          symbol: "EOS",
           algo: "dpos",
           family: "stake",
           layer: "L1",

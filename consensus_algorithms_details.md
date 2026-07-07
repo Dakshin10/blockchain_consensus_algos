@@ -151,35 +151,6 @@ This document contains the filled templates with the details for the consensus a
 
 ---
 
-### Proof of Authority (PoA)
-
-- Name: Proof of Authority (PoA)
-- Core Mechanism: Reputation-based consensus where pre-approved validator accounts validate transactions, staking their real-world identity and corporate reputation.
-- Step by step explanation: 
-  1. Candidate entities undergo rigorous identity check verification to become certified validators.
-  2. Approved validators take turns proposing and signing blocks in a circular queue.
-  3. Blocks are verified instantly via cryptographic signature validation of the active validator pool.
-  4. Malicious behavior leads to loss of validator status, public identity exposure, and legal consequences.
-
-- Trilemma analysis:
-    - Scalability (based on block creation time, TPS): Score 9/10 (1 - 5 sec block time, 1,000 - 5,000+ TPS)
-    - Security: Score 7/10 (Single Node / Private Key Compromise - easier to target individual trusted node keys than a broad network)
-    - Decentralisation: Score 2/10 (Very Low node participation, ~10 - 50 nodes entirely controlled under trusted consortiums)
-
-- Cryptocurrencies/Blockchain:
-    - Currencies using this mechanism: VeChain (VET), Palm Network (PALM)
-    - How this algo suits the blockchain: 
-      - **VeChain (VET)**: Designed to supply supply-chain enterprise operations with predictable, stable gas fees and structured corporate governance.
-      - **Palm Network (PALM)**: An Ethereum-aligned sidechain focused on NFT drops, using PoA to cut transaction costs and environmental footprint.
- 
-- Smart contract language: Solidity (VeChain & Palm Network)
-
-- Layer classification:
-    - Layer 1 or 2: Layer 1 (VeChain) / Layer 2 (Palm Network)
-    - Brief explanation: VeChain is a standalone base ledger (Layer 1) while Palm Network acts as an Ethereum-aligned sidechain (Layer 2) to scale NFT transactions.
-
----
-
 ### Proof of History (PoH)
 
 - Name: Proof of History (PoH)
