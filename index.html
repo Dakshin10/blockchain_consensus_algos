@@ -1,0 +1,2297 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Consensus Algorithms in Blockchain — A Comparative Explorer</title>
+    <meta
+      name="description"
+      content="An interactive, single-page data-driven web explorer comparing major blockchain consensus mechanisms across the trilemma, smart contract support, layers, and cross-chain compatibility."
+    />
+
+    <!-- Google Fonts: Outfit for UI, JetBrains Mono for tech stats -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      /* ==========================================================================
+       1. DESIGN SYSTEM & VARIABLE DEFINITIONS
+       ========================================================================== */
+      :root {
+        /* Base Colors */
+        --bg-dark: #070b19;
+        --bg-slate: #0b1329;
+        --panel-bg: rgba(15, 23, 42, 0.55);
+        --panel-border: rgba(255, 255, 255, 0.08);
+        --panel-border-hover: rgba(255, 255, 255, 0.15);
+        --text-main: #f1f5f9;
+        --text-muted: #94a3b8;
+
+        /* Consensus Family Accent Colors */
+        --color-nakamoto: #f59e0b; /* Gold/Amber (PoW, PoH) */
+        --color-nakamoto-glow: rgba(245, 158, 11, 0.15);
+
+        --color-stake: #8b5cf6; /* Violet/Purple (PoS, DPoS) */
+        --color-stake-glow: rgba(139, 92, 246, 0.15);
+
+        --color-byzantine: #06b6d4; /* Cyan/Teal (PBFT, FBA) */
+        --color-byzantine-glow: rgba(6, 182, 212, 0.15);
+
+        --color-authority: #10b981; /* Emerald/Green (PoA) */
+        --color-authority-glow: rgba(16, 185, 129, 0.15);
+
+        --color-space: #34d399; /* Mint/Green (PoSpace) */
+        --color-space-glow: rgba(52, 211, 153, 0.15);
+
+        --color-avalanche: #f43f5e; /* Rose/Red (Avalanche) */
+        --color-avalanche-glow: rgba(244, 63, 94, 0.15);
+
+        /* Active Highlight Target (Updated dynamically by JS) */
+        --accent: var(--color-nakamoto);
+        --accent-glow: var(--color-nakamoto-glow);
+
+        /* Layout */
+        --border-radius-lg: 16px;
+        --border-radius-md: 10px;
+        --border-radius-sm: 6px;
+        --transition-speed: 0.3s;
+      }
+
+      /* Reset & Base Styles */
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        background-color: var(--bg-dark);
+        background-image:
+          radial-gradient(
+            circle at 10% 20%,
+            rgba(15, 23, 42, 0.8) 0%,
+            transparent 80%
+          ),
+          radial-gradient(
+            circle at 90% 80%,
+            rgba(139, 92, 246, 0.05) 0%,
+            transparent 60%
+          ),
+          radial-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+        background-size:
+          100% 100%,
+          100% 100%,
+          32px 32px;
+        background-attachment: fixed;
+        color: var(--text-main);
+        font-family: "Outfit", sans-serif;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+        transition: color var(--transition-speed) ease;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+
+      /* Scrollbar Styling */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: var(--bg-dark);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: var(--border-radius-sm);
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--accent);
+      }
+
+      /* ==========================================================================
+       2. TYPOGRAPHY & LAYOUT HELPERS
+       ========================================================================== */
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 0 24px 64px 24px;
+      }
+
+      .glass-panel {
+        background: var(--panel-bg);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid var(--panel-border);
+        border-radius: var(--border-radius-lg);
+        padding: 24px;
+        transition:
+          border-color var(--transition-speed) ease,
+          box-shadow var(--transition-speed) ease;
+      }
+      .glass-panel:hover {
+        border-color: var(--panel-border-hover);
+        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: var(--border-radius-sm);
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      .badge-l1 {
+        background: rgba(6, 182, 212, 0.15);
+        color: #22d3ee;
+        border: 1px solid rgba(6, 182, 212, 0.3);
+      }
+      .badge-l2 {
+        background: rgba(168, 85, 247, 0.15);
+        color: #c084fc;
+        border: 1px solid rgba(168, 85, 247, 0.3);
+      }
+      .badge-hybrid {
+        background: rgba(245, 158, 11, 0.15);
+        color: #fbbf24;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+      }
+
+      /* ==========================================================================
+       3. HEADER & CONTROLS
+       ========================================================================== */
+      header {
+        padding: 40px 0 24px 0;
+        text-align: center;
+        position: relative;
+      }
+
+      .header-logo {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .header-logo svg {
+        width: 32px;
+        height: 32px;
+        fill: none;
+        stroke: var(--accent);
+        stroke-width: 2;
+        filter: drop-shadow(0 0 8px var(--accent));
+        transition:
+          stroke 0.4s ease,
+          filter 0.4s ease;
+      }
+
+      h1 {
+        font-size: 2.2rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin-bottom: 8px;
+        background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .subtitle {
+        font-size: 1.05rem;
+        color: var(--text-muted);
+        max-width: 600px;
+        margin: 0 auto 32px auto;
+        font-weight: 400;
+      }
+
+      /* Global Selector Bar */
+      .selector-wrapper {
+        position: sticky;
+        top: 16px;
+        z-index: 100;
+        margin-bottom: 32px;
+      }
+
+      .selector-bar {
+        display: flex;
+        gap: 8px;
+        padding: 8px;
+        background: rgba(11, 19, 41, 0.85);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 40px;
+        max-width: 100%;
+        overflow-x: auto;
+        justify-content: flex-start;
+        box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6);
+      }
+
+      /* Hide scrollbar for selector bar */
+      .selector-bar::-webkit-scrollbar {
+        display: none;
+      }
+      .selector-bar {
+        -ms-overflow-style: none; /* IE and Edge */
+        scrollbar-width: none; /* Firefox */
+      }
+
+      .selector-btn {
+        flex: 0 0 auto;
+        padding: 10px 20px;
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 30px;
+        color: var(--text-muted);
+        font-family: inherit;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .selector-btn:hover {
+        color: var(--text-main);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      /* Specific family dynamic focus classes */
+      .selector-btn.active[data-family="nakamoto"] {
+        background: var(--color-nakamoto-glow);
+        color: var(--color-nakamoto);
+        border-color: rgba(245, 158, 11, 0.4);
+        box-shadow: 0 0 20px -5px var(--color-nakamoto-glow);
+      }
+      .selector-btn.active[data-family="stake"] {
+        background: var(--color-stake-glow);
+        color: var(--color-stake);
+        border-color: rgba(139, 92, 246, 0.4);
+        box-shadow: 0 0 20px -5px var(--color-stake-glow);
+      }
+      .selector-btn.active[data-family="byzantine"] {
+        background: var(--color-byzantine-glow);
+        color: var(--color-byzantine);
+        border-color: rgba(6, 182, 212, 0.4);
+        box-shadow: 0 0 20px -5px var(--color-byzantine-glow);
+      }
+      .selector-btn.active[data-family="authority"] {
+        background: var(--color-authority-glow);
+        color: var(--color-authority);
+        border-color: rgba(16, 185, 129, 0.4);
+        box-shadow: 0 0 20px -5px var(--color-authority-glow);
+      }
+      .selector-btn.active[data-family="space"] {
+        background: var(--color-space-glow);
+        color: var(--color-space);
+        border-color: rgba(52, 211, 153, 0.4);
+        box-shadow: 0 0 20px -5px var(--color-space-glow);
+      }
+      .selector-btn.active[data-family="avalanche"] {
+        background: var(--color-avalanche-glow);
+        color: var(--color-avalanche);
+        border-color: rgba(244, 63, 94, 0.4);
+        box-shadow: 0 0 20px -5px var(--color-avalanche-glow);
+      }
+
+      .selector-btn span.dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+      }
+      .selector-btn[data-family="nakamoto"] span.dot {
+        background-color: var(--color-nakamoto);
+      }
+      .selector-btn[data-family="stake"] span.dot {
+        background-color: var(--color-stake);
+      }
+      .selector-btn[data-family="byzantine"] span.dot {
+        background-color: var(--color-byzantine);
+      }
+      .selector-btn[data-family="authority"] span.dot {
+        background-color: var(--color-authority);
+      }
+      .selector-btn[data-family="space"] span.dot {
+        background-color: var(--color-space);
+      }
+      .selector-btn[data-family="avalanche"] span.dot {
+        background-color: var(--color-avalanche);
+      }
+
+      /* ==========================================================================
+       4. DASHBOARD PANELS LAYOUT
+       ========================================================================== */
+      .dashboard-grid {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 24px;
+        margin-bottom: 24px;
+      }
+
+      .full-width-grid {
+        grid-column: span 2;
+      }
+
+      /* Common Card Headers */
+      .panel-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        padding-bottom: 12px;
+      }
+      .panel-title svg {
+        width: 20px;
+        height: 20px;
+        stroke: var(--accent);
+        stroke-width: 2;
+        fill: none;
+        transition: stroke 0.4s ease;
+      }
+
+      /* PANEL 1: Overview Panel */
+      .overview-text {
+        font-size: 1.05rem;
+        color: var(--text-main);
+        margin-bottom: 24px;
+        background: rgba(255, 255, 255, 0.02);
+        border-left: 3px solid var(--accent);
+        padding: 12px 16px;
+        border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
+        transition: border-color 0.4s ease;
+      }
+
+      .timeline-steps {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        position: relative;
+      }
+      .timeline-steps::before {
+        content: "";
+        position: absolute;
+        left: 17px;
+        top: 20px;
+        bottom: 20px;
+        width: 2px;
+        background: rgba(255, 255, 255, 0.05);
+      }
+      .timeline-step {
+        display: flex;
+        gap: 16px;
+        position: relative;
+      }
+      .step-number {
+        width: 36px;
+        height: 36px;
+        background: var(--bg-slate);
+        border: 2px solid var(--accent);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: var(--accent);
+        flex-shrink: 0;
+        z-index: 2;
+        transition:
+          border-color 0.4s ease,
+          color 0.4s ease,
+          box-shadow 0.4s ease;
+        box-shadow: 0 0 10px var(--accent-glow);
+      }
+      .step-content {
+        padding-top: 5px;
+      }
+      .step-content p {
+        font-size: 0.95rem;
+        color: var(--text-muted);
+      }
+
+      /* PANEL 2: Trilemma Scorecard & Radar Chart */
+      .trilemma-layout {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+      }
+
+      .radar-chart-container {
+        width: 220px;
+        height: 220px;
+        position: relative;
+      }
+      .radar-chart-container svg {
+        width: 100%;
+        height: 100%;
+      }
+
+      /* Radar Polygon Fill Style */
+      .radar-polygon {
+        fill: var(--accent-glow);
+        stroke: var(--accent);
+        stroke-width: 2.5;
+        transition:
+          fill 0.4s ease,
+          stroke 0.4s ease;
+      }
+      .radar-grid-line {
+        stroke: rgba(255, 255, 255, 0.06);
+        stroke-width: 1;
+      }
+      .radar-axis-line {
+        stroke: rgba(255, 255, 255, 0.12);
+        stroke-width: 1.5;
+        stroke-dasharray: 2 2;
+      }
+      .radar-axis-label {
+        font-size: 10px;
+        fill: var(--text-muted);
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-anchor: middle;
+      }
+
+      .scorecards {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .scorecard-item {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .scorecard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.9rem;
+      }
+      .scorecard-label {
+        font-weight: 600;
+        color: var(--text-main);
+      }
+      .scorecard-value {
+        font-family: "JetBrains Mono", monospace;
+        color: var(--accent);
+        font-weight: 700;
+        transition: color 0.4s ease;
+      }
+      .progress-bar-bg {
+        width: 100%;
+        height: 8px;
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .progress-bar-fill {
+        height: 100%;
+        background: var(--accent);
+        border-radius: 4px;
+        width: 0%; /* Dynamic update */
+        transition:
+          width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+          background-color 0.4s ease;
+      }
+      .scorecard-notes {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin-top: 2px;
+        padding-left: 2px;
+      }
+
+      /* PANEL 3: Blockchain/Crypto Mapping */
+      .blockchain-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 20px;
+      }
+      .blockchain-card {
+        background: rgba(255, 255, 255, 0.015);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        border-radius: var(--border-radius-md);
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        transition:
+          border-color var(--transition-speed) ease,
+          background var(--transition-speed) ease;
+      }
+      .blockchain-card:hover {
+        background: rgba(255, 255, 255, 0.03);
+        border-color: rgba(255, 255, 255, 0.08);
+      }
+      .blockchain-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .blockchain-identity {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .blockchain-icon-fallback {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--accent-glow);
+        color: var(--accent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 0.85rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition:
+          color 0.4s ease,
+          background 0.4s ease;
+      }
+      .blockchain-name-wrap h3 {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-main);
+      }
+      .blockchain-name-wrap span {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        font-family: "JetBrains Mono", monospace;
+      }
+      .blockchain-why {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        border-top: 1px solid rgba(255, 255, 255, 0.04);
+        padding-top: 10px;
+        margin-top: auto;
+      }
+
+      /* PANEL 4 & 5: Ecosystem Details */
+      .ecosystem-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+      }
+
+      .ecosystem-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .language-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .language-chip {
+        padding: 6px 12px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: var(--border-radius-sm);
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: "JetBrains Mono", monospace;
+        color: var(--text-main);
+      }
+      .language-chip span.indicator {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+      }
+
+      /* Specific languages */
+      .lang-solidity span.indicator {
+        background-color: #e28743;
+      }
+      .lang-rust span.indicator {
+        background-color: #dea584;
+      }
+      .lang-go span.indicator {
+        background-color: #00add8;
+      }
+      .lang-plutus span.indicator {
+        background-color: #5e3a8c;
+      }
+      .lang-cplusplus span.indicator {
+        background-color: #f34b7d;
+      }
+      .lang-java span.indicator {
+        background-color: #b07219;
+      }
+      .lang-chialisp span.indicator {
+        background-color: #3aa85c;
+      }
+      .lang-scilla span.indicator {
+        background-color: #1fc1c3;
+      }
+      .lang-default span.indicator {
+        background-color: #cccccc;
+      }
+
+      .layer-card {
+        background: rgba(255, 255, 255, 0.015);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        border-radius: var(--border-radius-md);
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .layer-card-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+        font-size: 0.95rem;
+      }
+      .layer-card-body {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+      }
+
+      /* ==========================================================================
+       5. COMPATIBILITY HEATMAP MATRIX (PANEL 6)
+       ========================================================================== */
+      .matrix-container {
+        margin-top: 12px;
+        overflow-x: auto;
+        border-radius: var(--border-radius-md);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        background: rgba(9, 13, 22, 0.6);
+        padding: 16px;
+      }
+
+      .matrix-layout-split {
+        display: grid;
+        grid-template-columns: 1fr 340px;
+        gap: 24px;
+      }
+
+      .heatmap-grid {
+        display: grid;
+        position: relative;
+        /* Grid template defined programmatically based on list size */
+        gap: 3px;
+        min-width: 650px;
+      }
+
+      /* Grid Row & Column Header labels */
+      .heatmap-cell {
+        aspect-ratio: 1;
+        border-radius: 3px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.65rem;
+        font-weight: 700;
+        user-select: none;
+        transition: all 0.2s ease;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.01);
+        position: relative;
+      }
+
+      .heatmap-label-row {
+        background: transparent !important;
+        cursor: default;
+        justify-content: flex-end;
+        padding-right: 6px;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+      }
+
+      .heatmap-label-col {
+        background: transparent !important;
+        cursor: default;
+        writing-mode: vertical-lr;
+        transform: rotate(180deg);
+        justify-content: flex-end;
+        padding-bottom: 6px;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+      }
+
+      .heatmap-cell.status-high {
+        background: var(--cell-color);
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+      .heatmap-cell.status-medium {
+        background: var(--cell-color-alpha);
+        border: 1px dashed var(--cell-color);
+      }
+      .heatmap-cell.status-low {
+        background: rgba(148, 163, 184, 0.03);
+        border-color: rgba(255, 255, 255, 0.02);
+      }
+
+      /* Highlight lines on hover */
+      .heatmap-cell.hover-highlight-cross {
+        filter: brightness(1.3);
+        outline: 1px solid rgba(255, 255, 255, 0.3);
+        z-index: 10;
+      }
+      .heatmap-cell.hover-highlight-axis {
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .matrix-inspector {
+        background: rgba(15, 23, 42, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: var(--border-radius-md);
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        height: 100%;
+        justify-content: center;
+        transition: border-color 0.3s ease;
+      }
+
+      .inspector-headline {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--accent);
+        font-weight: 700;
+      }
+
+      .inspector-chains {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1.15rem;
+        font-weight: 800;
+      }
+      .inspector-vs {
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        font-weight: 400;
+        padding: 0 4px;
+      }
+
+      .inspector-status {
+        display: inline-flex;
+        align-self: flex-start;
+      }
+
+      .inspector-description {
+        font-size: 0.88rem;
+        color: var(--text-muted);
+        line-height: 1.5;
+      }
+
+      .matrix-legend {
+        display: flex;
+        gap: 16px;
+        margin-top: 16px;
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        flex-wrap: wrap;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .legend-box {
+        width: 14px;
+        height: 14px;
+        border-radius: 3px;
+      }
+      .legend-box.high {
+        background: #8b5cf6;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+      .legend-box.medium {
+        background: rgba(139, 92, 246, 0.15);
+        border: 1px dashed #8b5cf6;
+      }
+      .legend-box.low {
+        background: rgba(148, 163, 184, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      /* ==========================================================================
+       6. FOOTER
+       ========================================================================== */
+      footer {
+        text-align: center;
+        padding: 40px 0;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        margin-top: 48px;
+      }
+
+      /* ==========================================================================
+       7. RESPONSIVENESS
+       ========================================================================== */
+      @media (max-width: 1024px) {
+        .dashboard-grid {
+          grid-template-columns: 1fr;
+        }
+        .full-width-grid {
+          grid-column: span 1;
+        }
+        .matrix-layout-split {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 640px) {
+        body {
+          background-size:
+            100% 100%,
+            100% 100%,
+            20px 20px;
+        }
+        .container {
+          padding: 0 16px 32px 16px;
+        }
+        h1 {
+          font-size: 1.6rem;
+        }
+        .subtitle {
+          font-size: 0.95rem;
+          margin-bottom: 20px;
+        }
+        .ecosystem-grid {
+          grid-template-columns: 1fr;
+        }
+        .selector-bar {
+          border-radius: 20px;
+        }
+        .selector-btn {
+          padding: 8px 14px;
+          font-size: 0.85rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Header -->
+      <header>
+        <div class="header-logo">
+          <svg viewBox="0 0 24 24">
+            <polygon points="12,2 22,8.5 22,15.5 12,22 2,15.5 2,8.5"></polygon>
+            <line x1="12" y1="2" x2="12" y2="22"></line>
+            <line x1="2" y1="8.5" x2="22" y2="15.5"></line>
+            <line x1="2" y1="15.5" x2="22" y2="8.5"></line>
+          </svg>
+        </div>
+        <h1>Consensus Algorithms in Blockchain</h1>
+        <p class="subtitle">
+          A Comparative Explorer of mathematical agreement protocols across the
+          decentralized landscape.
+        </p>
+      </header>
+
+      <!-- Global Selector Sticky Bar -->
+      <div class="selector-wrapper">
+        <div class="selector-bar" id="selector-bar" role="tablist">
+          <!-- Buttons added dynamically by script -->
+        </div>
+      </div>
+
+      <!-- Dashboard -->
+      <div class="dashboard-grid">
+        <!-- Panel 1: Overview -->
+        <section class="glass-panel" aria-labelledby="p1-title">
+          <h2 class="panel-title" id="p1-title">
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"
+              ></path>
+              <path d="M6 6h10M6 10h10"></path>
+            </svg>
+            Protocol Mechanics & Overview
+          </h2>
+          <div id="alg-overview" class="overview-text">
+            <!-- Overview loaded dynamically -->
+          </div>
+          <div class="timeline-steps" id="timeline-steps">
+            <!-- Timeline steps loaded dynamically -->
+          </div>
+        </section>
+
+        <!-- Panel 2: Trilemma Scorecard & Radar Chart -->
+        <section class="glass-panel" aria-labelledby="p2-title">
+          <h2 class="panel-title" id="p2-title">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            Blockchain Trilemma Analysis
+          </h2>
+          <div class="trilemma-layout">
+            <!-- Inline SVG Radar Chart -->
+            <div class="radar-chart-container">
+              <svg viewBox="0 0 200 200" id="radar-svg">
+                <!-- Grid background rings -->
+                <circle
+                  cx="100"
+                  cy="100"
+                  r="75"
+                  class="radar-grid-line"
+                ></circle>
+                <circle
+                  cx="100"
+                  cy="100"
+                  r="56.25"
+                  class="radar-grid-line"
+                ></circle>
+                <circle
+                  cx="100"
+                  cy="100"
+                  r="37.5"
+                  class="radar-grid-line"
+                ></circle>
+                <circle
+                  cx="100"
+                  cy="100"
+                  r="18.75"
+                  class="radar-grid-line"
+                ></circle>
+
+                <!-- Axes lines -->
+                <line
+                  x1="100"
+                  y1="100"
+                  x2="100"
+                  y2="20"
+                  class="radar-axis-line"
+                ></line>
+                <line
+                  x1="100"
+                  y1="100"
+                  x2="169.28"
+                  y2="140"
+                  class="radar-axis-line"
+                ></line>
+                <line
+                  x1="100"
+                  y1="100"
+                  x2="30.72"
+                  y2="140"
+                  class="radar-axis-line"
+                ></line>
+
+                <!-- Axis labels -->
+                <text x="100" y="15" class="radar-axis-label">SCALABILITY</text>
+                <text
+                  x="172"
+                  y="152"
+                  class="radar-axis-label"
+                  style="text-anchor: start"
+                >
+                  SECURITY
+                </text>
+                <text
+                  x="28"
+                  y="152"
+                  class="radar-axis-label"
+                  style="text-anchor: end"
+                >
+                  DECENTRALIZATION
+                </text>
+
+                <!-- Core Data Area Shape (Drawn programmatically) -->
+                <polygon
+                  points="100,100 100,100 100,100"
+                  class="radar-polygon"
+                  id="radar-poly"
+                ></polygon>
+              </svg>
+            </div>
+
+            <!-- Score Details -->
+            <div class="scorecards" id="scorecard-bars">
+              <!-- Scorecards and horizontal bars loaded dynamically -->
+            </div>
+          </div>
+        </section>
+
+        <!-- Panel 3: Blockchain/Crypto Mapping -->
+        <section class="glass-panel full-width-grid" aria-labelledby="p3-title">
+          <h2 class="panel-title" id="p3-title">
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+              ></path>
+            </svg>
+            Real-World Blockchain & Network Implementations
+          </h2>
+          <div class="blockchain-grid" id="blockchain-grid">
+            <!-- Blockchain nodes populated dynamically -->
+          </div>
+        </section>
+
+        <!-- Panel 4 & 5: Ecosystem Details (Languages & Layer Badges) -->
+        <div class="full-width-grid ecosystem-grid">
+          <!-- Smart Contract Languages -->
+          <section
+            class="glass-panel ecosystem-panel"
+            aria-labelledby="p4-title"
+          >
+            <h2 class="panel-title" id="p4-title">
+              <svg viewBox="0 0 24 24">
+                <polyline points="16 18 22 12 16 6"></polyline>
+                <polyline points="8 6 2 12 8 18"></polyline>
+              </svg>
+              Ecosystem Smart Contract Languages
+            </h2>
+            <div class="language-chips" id="language-chips">
+              <!-- Chips populated dynamically -->
+            </div>
+          </section>
+
+          <!-- Layer Classification -->
+          <section
+            class="glass-panel ecosystem-panel"
+            aria-labelledby="p5-title"
+          >
+            <h2 class="panel-title" id="p5-title">
+              <svg viewBox="0 0 24 24">
+                <rect x="3" y="3" width="7" height="9"></rect>
+                <rect x="14" y="3" width="7" height="5"></rect>
+                <rect x="14" y="12" width="7" height="9"></rect>
+                <rect x="3" y="16" width="7" height="5"></rect>
+              </svg>
+              Protocol Layer Classification
+            </h2>
+            <div id="layer-card-wrap">
+              <!-- Layer details populated dynamically -->
+            </div>
+          </section>
+        </div>
+
+        <!-- Panel 6: Cross-Chain Compatibility Heatmap Matrix -->
+        <section class="glass-panel full-width-grid" aria-labelledby="p6-title">
+          <h2 class="panel-title" id="p6-title">
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M4 21v-7m0 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8 7V10m0 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8 7V6m0 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"
+              ></path>
+            </svg>
+            Cross-Chain Interoperability & Compatibility Matrix
+          </h2>
+          <div class="matrix-layout-split">
+            <!-- The Heatmap Grid -->
+            <div>
+              <div class="matrix-container">
+                <div class="heatmap-grid" id="heatmap-grid">
+                  <!-- Programmatically generated grid cells -->
+                </div>
+              </div>
+              <!-- Legend -->
+              <div class="matrix-legend">
+                <div class="legend-item">
+                  <div class="legend-box high" id="legend-box-high"></div>
+                  <span>Full Protocol Compatibility (Shared Algorithm)</span>
+                </div>
+                <div class="legend-item">
+                  <div class="legend-box medium" id="legend-box-med"></div>
+                  <span>Paradigm Compatibility (Shared Family)</span>
+                </div>
+                <div class="legend-item">
+                  <div class="legend-box low"></div>
+                  <span>Protocol Incompatible</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Heatmap Cell Inspector -->
+            <div>
+              <div class="matrix-inspector" id="matrix-inspector">
+                <!-- Dynamic preview on cell hover/click -->
+                <span class="inspector-headline">Matrix Inspector</span>
+                <div class="inspector-chains" id="inspector-chains">
+                  Select a cell...
+                </div>
+                <div id="inspector-badge-wrap"></div>
+                <p class="inspector-description" id="inspector-description">
+                  Hover or tap any cell in the compatibility grid to inspect
+                  details about cross-chain interoperability, shared
+                  assumptions, or bridge requirements between networks.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Footer -->
+      <footer>
+        <p>
+          &copy; 2026 Consensus Explorer &bull; Built as a Single-Page
+          Educational Web Resource.
+        </p>
+      </footer>
+    </div>
+
+    <!-- ==========================================================================
+     8. JAVASCRIPT: DATA & INTERACTIVITY
+     ========================================================================== -->
+    <script>
+      // --- Complete Consensus Algorithms Source of Truth ---
+      const consensusData = {
+        pow: {
+          id: "pow",
+          name: "Proof of Work",
+          family: "nakamoto",
+          familyLabel: "Nakamoto Family",
+          mechanism:
+            "Nodes (miners) compete to solve cryptographically hard puzzles to validate transactions and secure the network.",
+          steps: [
+            "Transactions are bundled into a block candidate by miners.",
+            "Miners run cryptographic hashing continuously to find a nonce yielding a hash value below the current target difficulty.",
+            "The first miner to find the valid nonce broadcasts the new block to the network.",
+            "Other nodes verify the transactions and the cryptographic proof validity.",
+            "If valid, the block is appended, and the miner receives block rewards + transaction fees.",
+          ],
+          trilemma: {
+            scalability: {
+              score: 2,
+              blockTime: "10 min (BTC) / 1 min (DOGE)",
+              tps: "~7 - 15",
+            },
+            security: {
+              score: 9,
+              attackResistance: "51% Hashrate Takeover",
+              details:
+                "Requires controlling a majority of computing power, making mature chains highly secure.",
+            },
+            decentralization: {
+              score: 8,
+              nodeCount: "Thousands of miners globally",
+              details:
+                "Open participation, but vulnerable to industrial mining pool concentration.",
+            },
+          },
+          blockchains: [
+            {
+              name: "Bitcoin",
+              symbol: "BTC",
+              why: "Prioritizes absolute censorship resistance and security as a global settlement layer over transaction speed.",
+              layer: "Layer 1",
+              languages: ["Bitcoin Script"],
+            },
+            {
+              name: "Dogecoin",
+              symbol: "DOGE",
+              why: "Uses Scrypt algorithm with rapid 1-minute blocks to serve as a high-velocity utility transaction token.",
+              layer: "Layer 1",
+              languages: ["C++"],
+            },
+            {
+              name: "Monero",
+              symbol: "XMR",
+              why: "Employs RandomX, an ASIC-resistant PoW designed to keep CPU hardware competitive, keeping mining highly decentralized.",
+              layer: "Layer 1",
+              languages: ["C++"],
+            },
+          ],
+        },
+        pos: {
+          id: "pos",
+          name: "Proof of Stake",
+          family: "stake",
+          familyLabel: "Staking Family",
+          mechanism:
+            "Validators lock up native tokens as collateral. A pseudo-random algorithm selects validators to propose and attest to blocks based on stake size.",
+          steps: [
+            "Validators lock up cryptocurrency (staking) in a smart contract as collateral.",
+            "A random selection mechanism selects a validator to propose the next block (higher stake yields higher selection odds).",
+            "A committee of other active validators attests to the correctness of the proposed block.",
+            "Once quorum attestation is reached, the block is added to the blockchain.",
+            "Validators receive block rewards; bad actions (proposing conflicting blocks, going offline) trigger stakes to be cut ('slashing').",
+          ],
+          trilemma: {
+            scalability: {
+              score: 7,
+              blockTime: "12 sec (ETH) / 3 sec (ADA)",
+              tps: "~15 - 100+ (native L1)",
+            },
+            security: {
+              score: 8,
+              attackResistance: "51% Stake Monopolization",
+              details:
+                "Requires buying a majority of staked supply, driving up prices and self-sabotaging the attacker's capital.",
+            },
+            decentralization: {
+              score: 7,
+              nodeCount: "Tens of thousands",
+              details:
+                "Low hardware barrier, but high capital minimums create staking pool consolidation risks.",
+            },
+          },
+          blockchains: [
+            {
+              name: "Ethereum",
+              symbol: "ETH",
+              why: "Transitioned from PoW via 'The Merge' to reduce power usage by 99.9% and align with rollup-centric scaling.",
+              layer: "Layer 1",
+              languages: ["Solidity", "Vyper", "Yul"],
+            },
+            {
+              name: "Cardano",
+              symbol: "ADA",
+              why: "Utilizes Ouroboros PoS, designed with peer-reviewed research for deterministic fees and liquid delegation.",
+              layer: "Layer 1",
+              languages: ["Plutus (Haskell)", "Marlowe"],
+            },
+            {
+              name: "Polkadot",
+              symbol: "DOT",
+              why: "Uses Nominated PoS (NPoS) to maximize security sharing across many customized parallel chains (parachains).",
+              layer: "Layer 1",
+              languages: ["Rust (ink!)"],
+            },
+          ],
+        },
+        dpos: {
+          id: "dpos",
+          name: "Delegated Proof of Stake",
+          family: "stake",
+          familyLabel: "Staking Family",
+          mechanism:
+            "Token holders vote to elect a small, fixed group of professional delegates (Witnesses / Block Producers) who validate blocks in turn.",
+          steps: [
+            "Users vote for representative delegates using their token balances as weight.",
+            "A fixed number of top delegates (typically 21 to 101) are appointed as the active validator set.",
+            "Elected delegates propose and sign blocks sequentially in a scheduled round-robin system.",
+            "If a delegate behaves maliciously or fails to produce blocks, voters dynamically vote them out.",
+            "Delegates distribute portion of transaction fee rewards back to their voters.",
+          ],
+          trilemma: {
+            scalability: {
+              score: 9,
+              blockTime: "0.5 - 3 sec",
+              tps: "2,000 - 10,000+",
+            },
+            security: {
+              score: 6,
+              attackResistance: "Cartel Collusion & DDoS",
+              details:
+                "A small validator set is easier to coordinate, compromise, or target with network attacks.",
+            },
+            decentralization: {
+              score: 4,
+              nodeCount: "Fixed active pool (e.g. 21 - 27)",
+              details:
+                "High execution velocity, but results in high governance centralization under whale voters.",
+            },
+          },
+          blockchains: [
+            {
+              name: "BNB Chain",
+              symbol: "BNB",
+              why: "Utilizes Proof of Staked Authority (PoSA - DPoS/PoA hybrid) to provide retail dApps with rapid throughput and minimal gas costs.",
+              layer: "Layer 1",
+              languages: ["Solidity"],
+            },
+            {
+              name: "Tron",
+              symbol: "TRX",
+              why: "Coordinates via 27 Super Representatives to power massive high-volume stablecoin transfers and gaming platforms.",
+              layer: "Layer 1",
+              languages: ["Solidity"],
+            },
+            {
+              name: "EOS",
+              symbol: "EOS",
+              why: "Optimized for zero-fee user accounts and high smart contract speeds, relying on 21 block producers.",
+              layer: "Layer 1",
+              languages: ["C++"],
+            },
+          ],
+        },
+        pbft: {
+          id: "pbft",
+          name: "Practical Byzantine Fault Tolerance",
+          family: "byzantine",
+          familyLabel: "Byzantine Family",
+          mechanism:
+            "A low-latency message-passing consensus model where pre-selected nodes exchange state proofs repeatedly to agree on sequential states.",
+          steps: [
+            "A client submits a transaction request to the primary node (leader).",
+            "**Pre-prepare**: The leader assigns a sequence number and multicasts the request to backup nodes.",
+            "**Prepare**: Backup nodes verify the block and multicast a prepare message to all other nodes.",
+            "**Commit**: When a node receives 2f prepare messages (f = tolerated faults), it multicasts a commit message.",
+            "Nodes execute transactions and reply to the client after receiving 2f+1 commit messages, achieving instant finality.",
+          ],
+          trilemma: {
+            scalability: {
+              score: 6,
+              blockTime: "Sub-second / Instant",
+              tps: "1,000 - 5,000+",
+            },
+            security: {
+              score: 8,
+              attackResistance: "33% Byzantine Threshold",
+              details:
+                "Mathematically resilient against malicious action if less than 1/3 of the nodes are faulty.",
+            },
+            decentralization: {
+              score: 2,
+              nodeCount: "Low (< 100 typical)",
+              details:
+                "Requires intense O(N²) communication overhead, making it restricted to small, known groups.",
+            },
+          },
+          blockchains: [
+            {
+              name: "Hyperledger Fabric",
+              symbol: "HLF",
+              why: "A private enterprise ledger needing high performance, strict permissioned nodes, and instant finality without a token.",
+              layer: "Layer 1 (Enterprise)",
+              languages: ["Go", "Java", "JavaScript"],
+            },
+            {
+              name: "Zilliqa",
+              symbol: "ZIL",
+              why: "Combines PBFT for transaction processing within sharded committees with PoW for Sybil resistance.",
+              layer: "Layer 1",
+              languages: ["Scilla"],
+            },
+          ],
+        },
+        poa: {
+          id: "poa",
+          name: "Proof of Authority",
+          family: "authority",
+          familyLabel: "Authority Family",
+          mechanism:
+            "Reputation-based consensus where pre-approved validator accounts validate transactions, staking their real-world identity and corporate reputation.",
+          steps: [
+            "Candidate entities undergo rigorous identity check verification to become certified validators.",
+            "Approved validators take turns proposing and signing blocks in a circular queue.",
+            "Blocks are verified instantly via cryptographic signature validation of the active validator pool.",
+            "Malicious behavior leads to loss of validator status, public identity exposure, and legal consequences.",
+          ],
+          trilemma: {
+            scalability: {
+              score: 9,
+              blockTime: "1 - 5 sec",
+              tps: "1,000 - 5,000+",
+            },
+            security: {
+              score: 7,
+              attackResistance: "Single Node / Private Key Compromise",
+              details:
+                "Easier to target individual trusted node keys than a broad network.",
+            },
+            decentralization: {
+              score: 2,
+              nodeCount: "Very Low (~10 - 50)",
+              details:
+                "Entirely centralized under trusted consortiums, enterprise brands, or core developers.",
+            },
+          },
+          blockchains: [
+            {
+              name: "VeChain",
+              symbol: "VET",
+              why: "Designed to supply supply-chain enterprise operations with predictable, stable gas fees and structured corporate governance.",
+              layer: "Layer 1",
+              languages: ["Solidity"],
+            },
+            {
+              name: "Palm Network",
+              symbol: "PALM",
+              why: "An Ethereum-aligned sidechain focused on NFT drops, using PoA to cut transaction costs and environmental footprint.",
+              layer: "Layer 2 (Sidechain)",
+              languages: ["Solidity"],
+            },
+          ],
+        },
+        poh: {
+          id: "poh",
+          name: "Proof of History",
+          family: "nakamoto",
+          familyLabel: "Nakamoto Family",
+          mechanism:
+            "A cryptographic clock sequence generator using Verifiable Delay Functions (VDF) to prove the exact sequence and time passage between events.",
+          steps: [
+            "A leader generator node runs a continuous loop of SHA-256 hashes, feeding output as the next input.",
+            "Incoming transactions are merged with the hash outputs, anchoring them to a verifiable time order.",
+            "The generated sequence proves that data existed and was sent at a specific timestamp before verification.",
+            "Validator nodes verify the sequence in parallel segments, avoiding heavy consensus latency.",
+            "Final block validation is committed via standard Proof of Stake (PoS) voting.",
+          ],
+          trilemma: {
+            scalability: {
+              score: 10,
+              blockTime: "400 ms (0.4 sec)",
+              tps: "50,000+",
+            },
+            security: {
+              score: 7,
+              attackResistance: "Turbine Transmission / DDoS Target",
+              details:
+                "Relies on high-velocity leader propagation; hardware-level vulnerabilities are potential vectors.",
+            },
+            decentralization: {
+              score: 5,
+              nodeCount: "Medium (~1,500 - 2,000)",
+              details:
+                "Demands high-performance specialized hardware, GPUs, and network links, restricting typical home hosting.",
+            },
+          },
+          blockchains: [
+            {
+              name: "Solana",
+              symbol: "SOL",
+              why: "Built to match NASDAQ transaction throughput, keeping a single global state in sync without sharding latency.",
+              layer: "Layer 1",
+              languages: ["Rust", "C", "C++"],
+            },
+          ],
+        },
+        pospace: {
+          id: "pospace",
+          name: "Proof of Space & Time",
+          family: "space",
+          familyLabel: "Space Family",
+          mechanism:
+            "Consensus utilizing allocated, unused hard drive space (plotting) to store cryptographic solutions, paired with a temporal check.",
+          steps: [
+            "Users ('farmers') allocate storage disk space, filling it with plotted cryptographic hash tables.",
+            "A block challenge is broadcasted; farmers search their storage for the closest hash matching the challenge.",
+            "Farmers submitting valid matches generate a Proof of Space.",
+            "A 'Timelord' node validates the elapsed time using a sequential mathematical verification (Proof of Time).",
+            "The farmer with the best validated space-time proof is awarded the block.",
+          ],
+          trilemma: {
+            scalability: {
+              score: 5,
+              blockTime: "18.5 sec (Chia)",
+              tps: "~20 - 100",
+            },
+            security: {
+              score: 8,
+              attackResistance: "Simulation & Long-Range Attacks",
+              details:
+                "Requires massive storage investment; harder to scale quickly than GPU mining.",
+            },
+            decentralization: {
+              score: 8,
+              nodeCount: "Hundreds of thousands of plots",
+              details:
+                "Uses cheap, energy-efficient consumer hard drives, reducing the entry cost barrier.",
+            },
+          },
+          blockchains: [
+            {
+              name: "Chia Network",
+              symbol: "XCH",
+              why: "Created as an eco-friendly 'green' alternative to GPU/ASIC PoW mining, running on standard hard drives.",
+              layer: "Layer 1",
+              languages: ["Chialisp"],
+            },
+            {
+              name: "Filecoin",
+              symbol: "FIL",
+              why: "Integrates Proof of Space (PoRep & PoSt) to create a decentralized web storage network, paying miners for hosting files.",
+              layer: "Layer 1",
+              languages: ["Rust", "Go"],
+            },
+          ],
+        },
+        fba: {
+          id: "fba",
+          name: "Federated Byzantine Agreement",
+          family: "byzantine",
+          familyLabel: "Byzantine Family",
+          mechanism:
+            "Consensus achieved via overlapping trust circles (Quorum Slices) where individual nodes self-select who they trust to agree on ledger updates.",
+          steps: [
+            "Each node defines its own Quorum Slices (subgroups of other nodes they trust).",
+            "A transaction is proposed and sent across the network.",
+            "Nodes check and update transaction approval status based on the feedback of their Quorum Slices.",
+            "Slices overlap transitively, propagating the transaction approval state to the entire network.",
+            "The transaction is finalized globally without requiring a central coordinator.",
+          ],
+          trilemma: {
+            scalability: {
+              score: 9,
+              blockTime: "2 - 5 sec",
+              tps: "1,000 - 3,000+",
+            },
+            security: {
+              score: 8,
+              attackResistance: "Quorum Split / Liveness Halt",
+              details:
+                "If slices don't overlap properly, the network halts instead of splitting or creating forks.",
+            },
+            decentralization: {
+              score: 6,
+              nodeCount: "Low (~100 organizations)",
+              details:
+                "Anyone can run a node, but new nodes must be trusted by existing validators to affect consensus.",
+            },
+          },
+          blockchains: [
+            {
+              name: "Stellar",
+              symbol: "XLM",
+              why: "Uses Stellar Consensus Protocol (SCP) to enable fast, sub-cent cross-border settlement for international remittance.",
+              layer: "Layer 1",
+              languages: ["Rust (Soroban)"],
+            },
+            {
+              name: "Ripple",
+              symbol: "XRP",
+              why: "Employs Ripple Protocol Consensus (RPCA) with corporate node lists (UNLs) to clear international bank settlements.",
+              layer: "Layer 1",
+              languages: ["C++"],
+            },
+          ],
+        },
+        avalanche: {
+          id: "avalanche",
+          name: "Avalanche Consensus",
+          family: "avalanche",
+          familyLabel: "Avalanche Family",
+          mechanism:
+            "A leaderless protocol that works through rapid, randomized sub-sampling, where nodes repeatedly query random neighbors until they agree.",
+          steps: [
+            "A node receives a transaction and votes on its preference.",
+            "The node queries a small, randomly selected group of validators (e.g. 20 nodes) for their votes.",
+            "If a supermajority of the sampled nodes agree, the querying node changes its preference to match.",
+            "This sub-sampling query loop is repeated across the network (typically 20-30 rounds).",
+            "Decisions propagate like an avalanche, leading to finality across thousands of nodes in seconds.",
+          ],
+          trilemma: {
+            scalability: {
+              score: 9,
+              blockTime: "1 - 2 sec",
+              tps: "4,500+ (per subnet)",
+            },
+            security: {
+              score: 9,
+              attackResistance: "80% Safety Sybil Resistance",
+              details:
+                "Maintains mathematical safety bounds even if up to 80% of nodes act maliciously, surpassing PBFT's 33% limit.",
+            },
+            decentralization: {
+              score: 8,
+              nodeCount: "Thousands of active nodes",
+              details:
+                "Low hardware needs allow high node counts, though validator staking requirements exist.",
+            },
+          },
+          blockchains: [
+            {
+              name: "Avalanche",
+              symbol: "AVAX",
+              why: "Designed to deploy custom, highly compliant enterprise blockchains (Subnets) with sub-second finality.",
+              layer: "Layer 1",
+              languages: ["Solidity", "Go"],
+            },
+          ],
+        },
+      };
+
+      // --- Blockchains list for Compatibility Matrix & details ---
+      const blockchainList = [
+        {
+          id: "btc",
+          name: "Bitcoin",
+          symbol: "BTC",
+          algo: "pow",
+          family: "nakamoto",
+          layer: "L1",
+        },
+        {
+          id: "doge",
+          name: "Dogecoin",
+          symbol: "DOGE",
+          algo: "pow",
+          family: "nakamoto",
+          layer: "L1",
+        },
+        {
+          id: "xmr",
+          name: "Monero",
+          symbol: "XMR",
+          algo: "pow",
+          family: "nakamoto",
+          layer: "L1",
+        },
+        {
+          id: "eth",
+          name: "Ethereum",
+          symbol: "ETH",
+          algo: "pos",
+          family: "stake",
+          layer: "L1",
+        },
+        {
+          id: "ada",
+          name: "Cardano",
+          symbol: "ADA",
+          algo: "pos",
+          family: "stake",
+          layer: "L1",
+        },
+        {
+          id: "dot",
+          name: "Polkadot",
+          symbol: "DOT",
+          algo: "pos",
+          family: "stake",
+          layer: "L1",
+        },
+        {
+          id: "bnb",
+          name: "BNB Chain",
+          symbol: "BNB",
+          algo: "dpos",
+          family: "stake",
+          layer: "L1",
+        },
+        {
+          id: "trx",
+          name: "Tron",
+          symbol: "TRX",
+          algo: "dpos",
+          family: "stake",
+          layer: "L1",
+        },
+        {
+          id: "eos",
+          name: "EOS",
+          symbol: "EOS",
+          algo: "dpos",
+          family: "stake",
+          layer: "L1",
+        },
+        {
+          id: "sol",
+          name: "Solana",
+          symbol: "SOL",
+          algo: "poh",
+          family: "nakamoto",
+          layer: "L1",
+        },
+        {
+          id: "avax",
+          name: "Avalanche",
+          symbol: "AVAX",
+          algo: "avalanche",
+          family: "avalanche",
+          layer: "L1",
+        },
+        {
+          id: "xlm",
+          name: "Stellar",
+          symbol: "XLM",
+          algo: "fba",
+          family: "byzantine",
+          layer: "L1",
+        },
+        {
+          id: "xrp",
+          name: "Ripple",
+          symbol: "XRP",
+          algo: "fba",
+          family: "byzantine",
+          layer: "L1",
+        },
+        {
+          id: "xch",
+          name: "Chia",
+          symbol: "XCH",
+          algo: "pospace",
+          family: "space",
+          layer: "L1",
+        },
+        {
+          id: "fil",
+          name: "Filecoin",
+          symbol: "FIL",
+          algo: "pospace",
+          family: "space",
+          layer: "L1",
+        },
+        {
+          id: "vet",
+          name: "VeChain",
+          symbol: "VET",
+          algo: "poa",
+          family: "authority",
+          layer: "L1",
+        },
+        {
+          id: "palm",
+          name: "Palm Network",
+          symbol: "PALM",
+          algo: "poa",
+          family: "authority",
+          layer: "L2",
+        },
+        {
+          id: "zil",
+          name: "Zilliqa",
+          symbol: "ZIL",
+          algo: "pbft",
+          family: "byzantine",
+          layer: "L1",
+        },
+        {
+          id: "hlf",
+          name: "Hyperledger",
+          symbol: "HLF",
+          algo: "pbft",
+          family: "byzantine",
+          layer: "L1",
+        },
+      ];
+
+      // --- State variables ---
+      let selectedAlgorithm = "pow";
+      let currentRadarScores = [5, 5, 5]; // Scalability, Security, Decentralization (0-10)
+      let animationFrameId = null;
+
+      // --- Initialize App ---
+      document.addEventListener("DOMContentLoaded", () => {
+        buildSelectorBar();
+        buildHeatmap();
+        selectAlgorithm(selectedAlgorithm);
+      });
+
+      // --- UI Dynamic Rendering and Event Handlers ---
+
+      // 1. Build Global Selector Bar Buttons
+      function buildSelectorBar() {
+        const bar = document.getElementById("selector-bar");
+        bar.innerHTML = "";
+
+        Object.keys(consensusData).forEach((key) => {
+          const alg = consensusData[key];
+          const btn = document.createElement("button");
+          btn.className = "selector-btn";
+          btn.setAttribute("data-id", alg.id);
+          btn.setAttribute("data-family", alg.family);
+          btn.setAttribute("role", "tab");
+          btn.setAttribute("aria-selected", "false");
+          btn.innerHTML = `<span class="dot"></span> ${alg.name}`;
+
+          btn.addEventListener("click", () => {
+            selectAlgorithm(alg.id);
+          });
+
+          bar.appendChild(btn);
+        });
+      }
+
+      // 2. Main state updates when selected algorithm changes
+      function selectAlgorithm(algId) {
+        selectedAlgorithm = algId;
+        const data = consensusData[algId];
+
+        // Update css custom properties for the selected family
+        document.documentElement.style.setProperty(
+          "--accent",
+          `var(--color-${data.family})`,
+        );
+        document.documentElement.style.setProperty(
+          "--accent-glow",
+          `var(--color-${data.family}-glow)`,
+        );
+
+        // Update Selector Buttons active status
+        document.querySelectorAll(".selector-btn").forEach((btn) => {
+          if (btn.getAttribute("data-id") === algId) {
+            btn.classList.add("active");
+            btn.setAttribute("aria-selected", "true");
+          } else {
+            btn.classList.remove("active");
+            btn.setAttribute("aria-selected", "false");
+          }
+        });
+
+        // Update Panel 1 (Overview)
+        document.getElementById("alg-overview").innerText = data.mechanism;
+
+        const timeline = document.getElementById("timeline-steps");
+        timeline.innerHTML = "";
+        data.steps.forEach((step, idx) => {
+          const stepDiv = document.createElement("div");
+          stepDiv.className = "timeline-step";
+          stepDiv.innerHTML = `
+          <div class="step-number">${idx + 1}</div>
+          <div class="step-content">
+            <p>${step}</p>
+          </div>
+        `;
+          timeline.appendChild(stepDiv);
+        });
+
+        // Update Panel 2 (Trilemma Radar & Scorecards)
+        const targetScores = [
+          data.trilemma.scalability.score,
+          data.trilemma.security.score,
+          data.trilemma.decentralization.score,
+        ];
+        animateRadar(targetScores);
+
+        const scorecardContainer = document.getElementById("scorecard-bars");
+        scorecardContainer.innerHTML = `
+        <div class="scorecard-item">
+          <div class="scorecard-header">
+            <span class="scorecard-label">Scalability</span>
+            <span class="scorecard-value">${data.trilemma.scalability.score}/10</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="bar-scalability" style="width: 0%"></div>
+          </div>
+          <div class="scorecard-notes">TPS: <strong>${data.trilemma.scalability.tps}</strong> &bull; Block time: <strong>${data.trilemma.scalability.blockTime}</strong></div>
+        </div>
+        
+        <div class="scorecard-item">
+          <div class="scorecard-header">
+            <span class="scorecard-label">Security</span>
+            <span class="scorecard-value">${data.trilemma.security.score}/10</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="bar-security" style="width: 0%"></div>
+          </div>
+          <div class="scorecard-notes">Attack Vector: <strong>${data.trilemma.security.attackResistance}</strong><br>${data.trilemma.security.details}</div>
+        </div>
+        
+        <div class="scorecard-item">
+          <div class="scorecard-header">
+            <span class="scorecard-label">Decentralization</span>
+            <span class="scorecard-value">${data.trilemma.decentralization.score}/10</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="bar-decentralization" style="width: 0%"></div>
+          </div>
+          <div class="scorecard-notes">Validators: <strong>${data.trilemma.decentralization.nodeCount}</strong><br>${data.trilemma.decentralization.details}</div>
+        </div>
+      `;
+
+        // Trigger metric bar width expansion after rendering frame
+        setTimeout(() => {
+          const fillScalability = document.getElementById("bar-scalability");
+          const fillSecurity = document.getElementById("bar-security");
+          const fillDecentralization = document.getElementById(
+            "bar-decentralization",
+          );
+          if (fillScalability)
+            fillScalability.style.width = `${data.trilemma.scalability.score * 10}%`;
+          if (fillSecurity)
+            fillSecurity.style.width = `${data.trilemma.security.score * 10}%`;
+          if (fillDecentralization)
+            fillDecentralization.style.width = `${data.trilemma.decentralization.score * 10}%`;
+        }, 50);
+
+        // Update Panel 3 (Blockchain Implementations)
+        const blockchainGrid = document.getElementById("blockchain-grid");
+        blockchainGrid.innerHTML = "";
+        data.blockchains.forEach((chain) => {
+          const card = document.createElement("div");
+          card.className = "blockchain-card";
+
+          let badgeClass = "badge-l1";
+          if (
+            chain.layer.includes("Layer 2") ||
+            chain.layer.includes("L2") ||
+            chain.layer.includes("Sidechain")
+          ) {
+            badgeClass = "badge-l2";
+          } else if (
+            chain.layer.includes("Enterprise") ||
+            chain.layer.includes("Consortium")
+          ) {
+            badgeClass = "badge-hybrid";
+          }
+
+          card.innerHTML = `
+          <div class="blockchain-header">
+            <div class="blockchain-identity">
+              <div class="blockchain-icon-fallback">${chain.symbol.substring(0, 3)}</div>
+              <div class="blockchain-name-wrap">
+                <h3>${chain.name}</h3>
+                <span>${chain.symbol}</span>
+              </div>
+            </div>
+            <span class="badge ${badgeClass}">${chain.layer}</span>
+          </div>
+          <p class="blockchain-why">${chain.why}</p>
+        `;
+          blockchainGrid.appendChild(card);
+        });
+
+        // Update Panel 4 (Languages supported by blockchains using this consensus)
+        const langChipsContainer = document.getElementById("language-chips");
+        langChipsContainer.innerHTML = "";
+
+        const languagesUsed = new Set();
+        data.blockchains.forEach((chain) => {
+          chain.languages.forEach((l) => languagesUsed.add(l));
+        });
+
+        if (languagesUsed.size > 0) {
+          languagesUsed.forEach((lang) => {
+            const lClean = lang.toLowerCase().replace(/[^a-z0-9]/g, "");
+            const chip = document.createElement("div");
+            chip.className = `language-chip lang-${lClean}`;
+
+            let details = "Generic developer programming language.";
+            if (lang.includes("Solidity"))
+              details =
+                "Primary Ethereum EVM contract language. Highly optimized for gas-state machines.";
+            if (lang.includes("Rust"))
+              details =
+                "Type-safe systems language. Delivers blazing-fast execution speeds on Solana & WASM systems.";
+            if (lang.includes("Go"))
+              details =
+                "Statically typed compiled language. Standard for Hyperledger networks and custom subnets.";
+            if (lang.includes("Plutus"))
+              details =
+                "Functional smart contract framework based on Haskell, securing Cardano's deterministic EUTXO.";
+            if (lang.includes("Chialisp"))
+              details =
+                "LISP-derived sandboxed language optimized for coins, space storage, and governance validations.";
+            if (lang.includes("Scilla"))
+              details =
+                "Functional language verified mathematically for security, preventing reentrancy attacks in sharded blocks.";
+            if (lang.includes("C++"))
+              details =
+                "High-performance object-oriented language for foundational systems like EOS or legacy script wrappers.";
+
+            chip.innerHTML = `
+            <span class="indicator"></span>
+            <strong>${lang}</strong>: ${details}
+          `;
+            langChipsContainer.appendChild(chip);
+          });
+        } else {
+          langChipsContainer.innerHTML = `
+          <div class="language-chip lang-default">
+            <span class="indicator"></span>
+            No custom smart contract runtime directly bound to consensus on these native networks.
+          </div>
+        `;
+        }
+
+        // Update Panel 5 (Layer Details card)
+        const layerCardWrap = document.getElementById("layer-card-wrap");
+
+        let layersList = new Set();
+        data.blockchains.forEach((c) => layersList.add(c.layer));
+        const isL1 = layersList.has("Layer 1");
+        const isL2 =
+          layersList.has("Layer 2") ||
+          layersList.has("Layer 2 (Sidechain)") ||
+          layersList.has("Sidechain");
+        const isEnt =
+          layersList.has("Layer 1 (Enterprise)") ||
+          layersList.has("Enterprise");
+
+        let explanationText = "";
+        if (isL1 && !isL2 && !isEnt) {
+          explanationText =
+            "This protocol runs exclusively at the Layer 1 base consensus level. L1 networks establish initial trust and run the native consensus engine to settle transactions securely without external systems.";
+        } else if (isL2 && !isL1) {
+          explanationText =
+            "This implementation runs as a Layer 2 scaling solution or sidechain. Layer 2 structures inherit security or transaction bridges from L1 while utilizing lightweight consensus (such as PoA or Sequencers) to accelerate transaction processing.";
+        } else {
+          explanationText =
+            "This consensus spans multiple layer architectures. It is utilized both on L1 base ledgers to coordinate sovereign chains (like Avalanche subnets) and inside enterprise/consortium rollups to achieve fast settlement.";
+        }
+
+        layerCardWrap.innerHTML = `
+        <div class="layer-card">
+          <div class="layer-card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="stroke: var(--accent)"><polygon points="12,2 22,8.5 22,15.5 12,22 2,15.5 2,8.5"></polygon></svg>
+            Active Layers: ${Array.from(layersList).join(", ")}
+          </div>
+          <div class="layer-card-body">
+            ${explanationText}
+          </div>
+        </div>
+      `;
+
+        // Highlight Heatmap row/col coordinates matching the selected algorithm
+        highlightMatrixFromAlgorithm(algId);
+      }
+
+      // --- Interactive Radar Polygon Calculation & Animation ---
+
+      // Calculates SVG (X,Y) coordinates for a 3-axis radar chart centered at (100, 100)
+      // Axes: Scalability (Top - 90 deg), Security (Down/Right - 330 deg), Decentralization (Down/Left - 210 deg)
+      function getRadarPoints(scores) {
+        const center = 100;
+        const scaleFactor = 7.5; // (7.5 * 10 max score) = 75px radius
+
+        const sScore = scores[0];
+        const secScore = scores[1];
+        const dScore = scores[2];
+
+        // Axis 1: Scalability (Up: θ = -90 degrees or -pi/2 rad)
+        const x1 = center;
+        const y1 = center - sScore * scaleFactor;
+
+        // Axis 2: Security (Down Right: θ = 30 degrees or pi/6 rad)
+        const x2 = center + secScore * scaleFactor * Math.cos(Math.PI / 6);
+        const y2 = center + secScore * scaleFactor * Math.sin(Math.PI / 6);
+
+        // Axis 3: Decentralization (Down Left: θ = 150 degrees or 5pi/6 rad)
+        const x3 = center - dScore * scaleFactor * Math.cos(Math.PI / 6);
+        const y3 = center + dScore * scaleFactor * Math.sin(Math.PI / 6);
+
+        return `${x1},${y1} ${x2},${y2} ${x3},${y3}`;
+      }
+
+      // Animates the polygon shape with easeOutCubic transition interpolation
+      function animateRadar(targetScores) {
+        const duration = 400; // ms
+        const start = performance.now();
+        const startScores = [...currentRadarScores];
+
+        if (animationFrameId) {
+          cancelAnimationFrame(animationFrameId);
+        }
+
+        function step(timestamp) {
+          const elapsed = timestamp - start;
+          const progress = Math.min(elapsed / duration, 1);
+
+          // easeOutCubic
+          const ease = 1 - Math.pow(1 - progress, 3);
+
+          currentRadarScores = startScores.map((startVal, idx) => {
+            return startVal + (targetScores[idx] - startVal) * ease;
+          });
+
+          const poly = document.getElementById("radar-poly");
+          if (poly) {
+            poly.setAttribute("points", getRadarPoints(currentRadarScores));
+          }
+
+          if (progress < 1) {
+            animationFrameId = requestAnimationFrame(step);
+          }
+        }
+
+        animationFrameId = requestAnimationFrame(step);
+      }
+
+      // --- Interactive Heatmap (Panel 6) ---
+
+      function buildHeatmap() {
+        const grid = document.getElementById("heatmap-grid");
+        const size = blockchainList.length;
+
+        // Setup grid stylesheet columns (Size + 1 header column)
+        grid.style.gridTemplateColumns = `120px repeat(${size}, 1fr)`;
+
+        // Render Header Row Labels (top labels)
+        // Top left corner cell
+        const corner = document.createElement("div");
+        corner.className = "heatmap-cell heatmap-label-row";
+        corner.style.height = "50px";
+        corner.innerText = "";
+        grid.appendChild(corner);
+
+        blockchainList.forEach((col) => {
+          const label = document.createElement("div");
+          label.className = "heatmap-cell heatmap-label-col";
+          label.style.height = "50px";
+          label.innerText = col.symbol;
+          grid.appendChild(label);
+        });
+
+        // Render Rows
+        blockchainList.forEach((row, rowIdx) => {
+          // Row label (leftmost cell)
+          const rowLabel = document.createElement("div");
+          rowLabel.className = "heatmap-cell heatmap-label-row";
+          rowLabel.innerText = row.name;
+          grid.appendChild(rowLabel);
+
+          // Cells in row
+          blockchainList.forEach((col, colIdx) => {
+            const cell = document.createElement("div");
+            cell.className = "heatmap-cell";
+            cell.setAttribute("data-row", row.id);
+            cell.setAttribute("data-col", col.id);
+            cell.setAttribute("data-row-idx", rowIdx);
+            cell.setAttribute("data-col-idx", colIdx);
+            cell.innerText = "";
+
+            // Determine relationship compatibility status
+            let status = "low";
+            let colorVar = "rgba(148,163,184, 0.05)";
+
+            if (row.algo === col.algo) {
+              status = "high";
+              // Set cell custom color property based on row consensus algorithm
+              const familyColor = getComputedStyle(document.documentElement)
+                .getPropertyValue(`--color-${row.family}`)
+                .trim();
+              cell.style.setProperty("--cell-color", familyColor);
+              cell.classList.add("status-high");
+            } else if (row.family === col.family) {
+              status = "medium";
+              const familyColor = getComputedStyle(document.documentElement)
+                .getPropertyValue(`--color-${row.family}`)
+                .trim();
+              cell.style.setProperty("--cell-color", familyColor);
+              cell.style.setProperty(
+                "--cell-color-alpha",
+                `rgba(${hexToRgb(familyColor)}, 0.15)`,
+              );
+              cell.classList.add("status-medium");
+            } else {
+              cell.classList.add("status-low");
+            }
+
+            // Interactivity event listeners
+            cell.addEventListener("mouseenter", () =>
+              handleCellHover(row, col, status),
+            );
+            cell.addEventListener("mouseleave", handleCellLeave);
+            cell.addEventListener("click", () => {
+              selectAlgorithm(row.algo);
+              // Smooth scroll up to header to show updating panels if on small screens
+              if (window.innerWidth < 1024) {
+                document
+                  .querySelector(".selector-wrapper")
+                  .scrollIntoView({ behavior: "smooth" });
+              }
+            });
+
+            grid.appendChild(cell);
+          });
+        });
+      }
+
+      // Custom helper to translate hex to rgb channels for rgba transparency
+      function hexToRgb(hex) {
+        if (!hex.startsWith("#")) return "139, 92, 246"; // default to stake
+        const bigint = parseInt(hex.slice(1), 16);
+        const r = (bigint >> 16) & 255;
+        const g = (bigint >> 8) & 255;
+        const b = bigint & 255;
+        return `${r}, ${g}, ${b}`;
+      }
+
+      // Hover Highlight Crosshair and update matrix inspector
+      function handleCellHover(row, col, status) {
+        // Highlight intersection lines
+        const cells = document.querySelectorAll(".heatmap-cell");
+        const targetRowId = row.id;
+        const targetColId = col.id;
+
+        cells.forEach((c) => {
+          const cRow = c.getAttribute("data-row");
+          const cCol = c.getAttribute("data-col");
+
+          if (cRow === targetRowId && cCol === targetColId) {
+            c.classList.add("hover-highlight-cross");
+          } else if (cRow === targetRowId || cCol === targetColId) {
+            c.classList.add("hover-highlight-axis");
+          }
+        });
+
+        // Update Inspector Panel content
+        const inspector = document.getElementById("matrix-inspector");
+        const titleWrap = document.getElementById("inspector-chains");
+        const badgeWrap = document.getElementById("inspector-badge-wrap");
+        const desc = document.getElementById("inspector-description");
+
+        titleWrap.innerHTML = `${row.name} <span class="inspector-vs">VS</span> ${col.name}`;
+
+        let badgeHTML = "";
+        let descriptionHTML = "";
+
+        const rowAlgoName = consensusData[row.algo].name;
+        const colAlgoName = consensusData[col.algo].name;
+
+        if (row.id === col.id) {
+          badgeHTML = `<span class="badge" style="background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12)">Self Identity</span>`;
+          descriptionHTML = `Comparing a network against itself. Runs native ${rowAlgoName} consensus. Any transaction within the same network avoids multi-signature bridges and relies on native protocol finality.`;
+        } else if (status === "high") {
+          badgeHTML = `<span class="badge" style="background: var(--color-${row.family}-glow); border: 1px solid var(--color-${row.family}); color: var(--color-${row.family})">Protocol Compatible</span>`;
+          descriptionHTML = `Both networks run <strong>${rowAlgoName}</strong> consensus. Since they share identical mathematical assumptions and finalized epoch mechanisms, cross-chain communication is theoretically compatible. Lightweight clients can parse each other's block headers directly, allowing trust-minimized interoperability or bridging.`;
+        } else if (status === "medium") {
+          badgeHTML = `<span class="badge" style="background: rgba(255, 255, 255, 0.02); border: 1px dashed var(--color-${row.family}); color: var(--color-${row.family})">Paradigm Compatible</span>`;
+          descriptionHTML = `Both networks share the <strong>${consensusData[row.algo].familyLabel}</strong> archetype (comparing ${rowAlgoName} vs ${colAlgoName}). While they agree on primary design goals (e.g., stake locking), they differ in delegation rules or finality speed. Multi-signature networks or decentralized oracle consensus bridges are necessary to communicate across protocols.`;
+        } else {
+          badgeHTML = `<span class="badge" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171">Protocol Incompatible</span>`;
+          descriptionHTML = `${row.name} runs <strong>${rowAlgoName}</strong>, whereas ${col.name} operates on <strong>${colAlgoName}</strong>. Their state validation clocks, attack vectors, and execution schedules are entirely mismatched. Interoperability requires trusted escrow systems, smart contract state verification wrappers, or centralized third-party bridging services.`;
+        }
+
+        badgeWrap.innerHTML = badgeHTML;
+        desc.innerHTML = descriptionHTML;
+
+        // Update inspector accent highlight border
+        const familyColor = getComputedStyle(document.documentElement)
+          .getPropertyValue(`--color-${row.family}`)
+          .trim();
+        inspector.style.borderColor = familyColor;
+      }
+
+      function handleCellLeave() {
+        const cells = document.querySelectorAll(".heatmap-cell");
+        cells.forEach((c) => {
+          c.classList.remove("hover-highlight-cross");
+          c.classList.remove("hover-highlight-axis");
+        });
+      }
+
+      // Dynamic Heatmap Row/Column outlines when a global algorithm is chosen
+      function highlightMatrixFromAlgorithm(algId) {
+        const cells = document.querySelectorAll(".heatmap-cell");
+        cells.forEach((c) => {
+          const cRow = c.getAttribute("data-row");
+          const cCol = c.getAttribute("data-col");
+
+          if (cRow || cCol) {
+            const rowBlockchain = blockchainList.find((b) => b.id === cRow);
+            const colBlockchain = blockchainList.find((b) => b.id === cCol);
+
+            if (
+              (rowBlockchain && rowBlockchain.algo === algId) ||
+              (colBlockchain && colBlockchain.algo === algId)
+            ) {
+              c.style.outline = "1px solid rgba(255, 255, 255, 0.1)";
+            } else {
+              c.style.outline = "none";
+            }
+          }
+        });
+      }
+    </script>
+  </body>
+</html>
