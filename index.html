@@ -44,8 +44,8 @@
         --color-authority: #10b981; /* Emerald/Green (PoA) */
         --color-authority-glow: rgba(16, 185, 129, 0.15);
 
-        --color-space: #34d399; /* Mint/Green (PoSpace) */
-        --color-space-glow: rgba(52, 211, 153, 0.15);
+        --color-tee: #34d399; /* Mint/Green (PoET/TEE) */
+        --color-tee-glow: rgba(52, 211, 153, 0.15);
 
         --color-avalanche: #f43f5e; /* Rose/Red (Avalanche) */
         --color-avalanche-glow: rgba(244, 63, 94, 0.15);
@@ -294,11 +294,11 @@
         border-color: rgba(16, 185, 129, 0.4);
         box-shadow: 0 0 20px -5px var(--color-authority-glow);
       }
-      .selector-btn.active[data-family="space"] {
-        background: var(--color-space-glow);
-        color: var(--color-space);
+      .selector-btn.active[data-family="tee"] {
+        background: var(--color-tee-glow);
+        color: var(--color-tee);
         border-color: rgba(52, 211, 153, 0.4);
-        box-shadow: 0 0 20px -5px var(--color-space-glow);
+        box-shadow: 0 0 20px -5px var(--color-tee-glow);
       }
       .selector-btn.active[data-family="avalanche"] {
         background: var(--color-avalanche-glow);
@@ -325,8 +325,8 @@
       .selector-btn[data-family="authority"] span.dot {
         background-color: var(--color-authority);
       }
-      .selector-btn[data-family="space"] span.dot {
-        background-color: var(--color-space);
+      .selector-btn[data-family="tee"] span.dot {
+        background-color: var(--color-tee);
       }
       .selector-btn[data-family="avalanche"] span.dot {
         background-color: var(--color-avalanche);
@@ -1473,103 +1473,46 @@
             },
           ],
         },
-        pospace: {
-          id: "pospace",
-          name: "Proof of Space & Time",
-          family: "space",
-          familyLabel: "Space Family",
+        poet: {
+          id: "poet",
+          name: "Proof of Elapsed Time",
+          family: "tee",
+          familyLabel: "TEE Family",
           mechanism:
-            "Consensus utilizing allocated, unused hard drive space (plotting) to store cryptographic solutions, paired with a temporal check.",
+            "A lottery-based consensus protocol that uses secure, hardware-enforced trusted execution environments (TEEs) to allocate randomized waiting times for block proposers.",
           steps: [
-            "Users ('farmers') allocate storage disk space, filling it with plotted cryptographic hash tables.",
-            "A block challenge is broadcasted; farmers search their storage for the closest hash matching the challenge.",
-            "Farmers submitting valid matches generate a Proof of Space.",
-            "A 'Timelord' node validates the elapsed time using a sequential mathematical verification (Proof of Time).",
-            "The farmer with the best validated space-time proof is awarded the block.",
+            "Each validator node requests a random wait duration from its local CPU Trusted Execution Environment (TEE, e.g., Intel SGX).",
+            "The TEE generates a secure, signed random timer attestation that cannot be altered by the node owner.",
+            "The validator node goes into an idle sleep state for the duration of the assigned timer.",
+            "The first node whose timer expires wakes up, generates a 'proof of sleep' attestation, and signs the new block.",
+            "Other validators verify the attestation signature and the block, accepting it if the proof is valid.",
           ],
           trilemma: {
             scalability: {
-              score: 5,
-              blockTime: "18.5 sec (Chia)",
-              tps: "~20 - 100",
+              score: 7,
+              blockTime: "10 - 30 sec (Sawtooth)",
+              tps: "100 - 1,000+",
             },
             security: {
-              score: 8,
-              attackResistance: "Simulation & Long-Range Attacks",
+              score: 7,
+              attackResistance: "Intel SGX/TEE Exploit Resistance",
               details:
-                "Requires massive storage investment; harder to scale quickly than GPU mining.",
-            },
-            decentralization: {
-              score: 8,
-              nodeCount: "Hundreds of thousands of plots",
-              details:
-                "Uses cheap, energy-efficient consumer hard drives, reducing the entry cost barrier.",
-            },
-          },
-          blockchains: [
-            {
-              name: "Chia Network",
-              symbol: "XCH",
-              why: "Created as an eco-friendly 'green' alternative to GPU/ASIC PoW mining, running on standard hard drives.",
-              layer: "Layer 1",
-              languages: ["Chialisp"],
-            },
-            {
-              name: "Filecoin",
-              symbol: "FIL",
-              why: "Integrates Proof of Space (PoRep & PoSt) to create a decentralized web storage network, paying miners for hosting files.",
-              layer: "Layer 1",
-              languages: ["Rust", "Go"],
-            },
-          ],
-        },
-        fba: {
-          id: "fba",
-          name: "Federated Byzantine Agreement",
-          family: "byzantine",
-          familyLabel: "Byzantine Family",
-          mechanism:
-            "Consensus achieved via overlapping trust circles (Quorum Slices) where individual nodes self-select who they trust to agree on ledger updates.",
-          steps: [
-            "Each node defines its own Quorum Slices (subgroups of other nodes they trust).",
-            "A transaction is proposed and sent across the network.",
-            "Nodes check and update transaction approval status based on the feedback of their Quorum Slices.",
-            "Slices overlap transitively, propagating the transaction approval state to the entire network.",
-            "The transaction is finalized globally without requiring a central coordinator.",
-          ],
-          trilemma: {
-            scalability: {
-              score: 9,
-              blockTime: "2 - 5 sec",
-              tps: "1,000 - 3,000+",
-            },
-            security: {
-              score: 8,
-              attackResistance: "Quorum Split / Liveness Halt",
-              details:
-                "If slices don't overlap properly, the network halts instead of splitting or creating forks.",
+                "Extremely secure unless physical TEE/SGX chip vulnerabilities are discovered and exploited.",
             },
             decentralization: {
               score: 6,
-              nodeCount: "Low (~100 organizations)",
+              nodeCount: "Hundreds (Consortium validators)",
               details:
-                "Anyone can run a node, but new nodes must be trusted by existing validators to affect consensus.",
+                "Low participation barrier since sleep state uses almost zero energy, but dependent on Intel's TEE hardware vendor ecosystem.",
             },
           },
           blockchains: [
             {
-              name: "Stellar",
-              symbol: "XLM",
-              why: "Uses Stellar Consensus Protocol (SCP) to enable fast, sub-cent cross-border settlement for international remittance.",
-              layer: "Layer 1",
-              languages: ["Rust (Soroban)"],
-            },
-            {
-              name: "Ripple",
-              symbol: "XRP",
-              why: "Employs Ripple Protocol Consensus (RPCA) with corporate node lists (UNLs) to clear international bank settlements.",
-              layer: "Layer 1",
-              languages: ["C++"],
+              name: "Hyperledger Sawtooth",
+              symbol: "SAW",
+              why: "Provides highly efficient, tokenless transaction consensus suitable for enterprise logistics and supply chain networks.",
+              layer: "Layer 1 (Enterprise)",
+              languages: ["Python", "Rust", "Go", "Java"],
             },
           ],
         },
@@ -1709,35 +1652,11 @@
           layer: "L1",
         },
         {
-          id: "xlm",
-          name: "Stellar",
-          symbol: "XLM",
-          algo: "fba",
-          family: "byzantine",
-          layer: "L1",
-        },
-        {
-          id: "xrp",
-          name: "Ripple",
-          symbol: "XRP",
-          algo: "fba",
-          family: "byzantine",
-          layer: "L1",
-        },
-        {
-          id: "xch",
-          name: "Chia",
-          symbol: "XCH",
-          algo: "pospace",
-          family: "space",
-          layer: "L1",
-        },
-        {
-          id: "fil",
-          name: "Filecoin",
-          symbol: "FIL",
-          algo: "pospace",
-          family: "space",
+          id: "saw",
+          name: "Sawtooth",
+          symbol: "SAW",
+          algo: "poet",
+          family: "tee",
           layer: "L1",
         },
         {
@@ -1978,9 +1897,12 @@
             if (lang.includes("Plutus"))
               details =
                 "Functional smart contract framework based on Haskell, securing Cardano's deterministic EUTXO.";
-            if (lang.includes("Chialisp"))
+            if (lang.includes("Python"))
               details =
-                "LISP-derived sandboxed language optimized for coins, space storage, and governance validations.";
+                "Highly readable interpreted language. Widely used for building transaction processors on Hyperledger Sawtooth.";
+            if (lang.includes("Java"))
+              details =
+                "Object-oriented language standard. Supports enterprise-grade smart contract runtimes.";
             if (lang.includes("Scilla"))
               details =
                 "Functional language verified mathematically for security, preventing reentrancy attacks in sharded blocks.";

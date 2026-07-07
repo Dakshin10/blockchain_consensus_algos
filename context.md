@@ -20,16 +20,15 @@ Design and develop an interactive, single-page educational website titled **'Con
 ## 2. Refined Implementation Plan
 
 ### A. Data Model (`consensusData`)
-A single, normalized JavaScript object is the source of truth, containing 9 consensus algorithms:
+A single, normalized JavaScript object is the source of truth, containing 8 consensus algorithms:
 * **PoW** (Proof of Work)
 * **PoS** (Proof of Stake)
 * **DPoS** (Delegated Proof of Stake)
-* **PBFT** (Practical Byzantine Fault Tolerance)
 * **PoA** (Proof of Authority)
+* **PBFT** (Practical Byzantine Fault Tolerance)
 * **PoH** (Proof of History)
-* **PoSpace** (Proof of Space & Time)
-* **FBA** (Federated Byzantine Agreement)
 * **Avalanche** (Avalanche Consensus)
+* **PoET** (Proof of Elapsed Time)
 
 ### B. Interactive Layout Panels
 1. **Header Selector Bar**: Sticky pills/tabs representing each algorithm, styled dynamically.
@@ -38,7 +37,7 @@ A single, normalized JavaScript object is the source of truth, containing 9 cons
 4. **Panel 3: Real-World Implementations**: Grid of cards mapping blockchains to consensus with specific design rationales.
 5. **Panel 4: Smart Contract Languages**: Tags colored by ecosystem (Solidity, Rust, Plutus, Go, Move, etc.) with VM descriptions.
 6. **Panel 5: Protocol Layer Classification**: Badges detailing L1/L2 roles.
-7. **Panel 6: Interoperability Matrix**: A 2D grid matrix mapping 19 major blockchains (BTC, DOGE, XMR, ETH, ADA, DOT, BNB, TRX, EOS, SOL, AVAX, XLM, XRP, XCH, FIL, VET, PALM, ZIL, HLF) color-coded by compatibility.
+7. **Panel 6: Interoperability Matrix**: A 2D grid matrix mapping 16 major blockchains (BTC, DOGE, XMR, ETH, ADA, DOT, BNB, TRX, EOS, SOL, AVAX, SAW, VET, PALM, ZIL, HLF) color-coded by compatibility.
 
 ---
 
@@ -66,7 +65,7 @@ function easeOutCubic(t) {
 `requestAnimationFrame` interpolates scores from the previous algorithm to the newly selected algorithm's scores to render smooth geometric morphing.
 
 ### C. Compatibility Matrix Logic
-The 19x19 grid cell relationships are calculated as:
+The 16x16 grid cell relationships are calculated as:
 1. **High Compatibility (Full Green/Theme Color)**: Row and column blockchains run the *exact same* consensus algorithm (e.g., Bitcoin & Dogecoin = PoW).
 2. **Medium Compatibility (Dashed Theme Border & Translucent Fill)**: Row and column blockchains belong to the *same paradigm family* (e.g., Ethereum (PoS) and BNB Chain (DPoS) = Staking family).
 3. **Low Compatibility (Obsidian Slate/Grey)**: Protocols use different families (e.g., Bitcoin (PoW) and Solana (PoH/PoS)).
