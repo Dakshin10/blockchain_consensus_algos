@@ -1,0 +1,180 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Fallback and default dynamic variables */
+    --accent-color: #f59e0b;
+    --accent-glow: rgba(245, 158, 11, 0.15);
+  }
+
+  body {
+    background-color: #070b19;
+    color: #f1f5f9;
+    font-family: "Outfit", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(
+        circle at 10% 20%,
+        rgba(15, 23, 42, 0.8) 0%,
+        transparent 80%
+      ),
+      radial-gradient(
+        circle at 90% 80%,
+        var(--accent-glow) 0%,
+        transparent 60%
+      ),
+      radial-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+    background-size:
+      100% 100%,
+      100% 100%,
+      32px 32px;
+    background-attachment: fixed;
+    transition: background-image 0.4s ease;
+  }
+}
+
+/* Modular Explorer UI Card Design */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 24px;
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.glass-panel:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+}
+
+/* Dynamic custom properties transition classes */
+.dynamic-accent-text {
+  color: var(--accent-color);
+  transition: color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dynamic-accent-border {
+  border-color: var(--accent-color);
+  transition: border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dynamic-accent-bg {
+  background-color: var(--accent-color);
+  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dynamic-accent-glow-bg {
+  background-color: var(--accent-glow);
+  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dynamic-accent-shadow {
+  box-shadow: 0 0 15px var(--accent-glow);
+  transition: box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Scrollbar Customization */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #070b19;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-color);
+}
+
+/* Dynamic Pulse Animation for Active Visualizations */
+@keyframes signalPulse {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0.5;
+  }
+}
+
+.pulse-glow {
+  animation: signalPulse 2s infinite ease-in-out;
+}
+
+/* Brilliant-style Educational Typography Classes */
+.edu-heading-primary {
+  font-family: "Outfit", system-ui, sans-serif;
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.edu-heading-secondary {
+  font-family: "Outfit", system-ui, sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.edu-body {
+  font-family: "Outfit", system-ui, sans-serif;
+  font-size: 20px;
+  font-weight: 300;
+  line-height: 1.65;
+}
+
+.edu-important-text {
+  font-family: "Outfit", system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.edu-workflow-label {
+  font-family: "Outfit", system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.edu-button {
+  font-family: "Outfit", system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* Collapsible Right Panel Slide-out Transition Classes */
+.utility-panel-transition {
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.35s ease;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
