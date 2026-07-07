@@ -1,8 +1,125 @@
 # Consensus Algorithms Details
 
-This document contains the filled templates with the details for the consensus algorithms: Practical Byzantine Fault Tolerance (PBFT), Proof of Authority (PoA), Proof of History (PoH), Proof of Elapsed Time (PoET), and Avalanche Consensus.
+This document contains the filled templates with the details for the consensus algorithms: Proof of Work (PoW), Proof of Stake (PoS), Delegated Proof of Stake (DPoS), Proof of Authority (PoA), Practical Byzantine Fault Tolerance (PBFT), Proof of History (PoH), Proof of Elapsed Time (PoET), and Avalanche Consensus.
+---
+
+### Proof of Work (PoW)
+
+- Name: Proof of Work (PoW)
+- Core Mechanism: A competitive, computationally-intensive consensus model where miners race to solve a cryptographic puzzle to earn the right to append the next block.
+- Step by step explanation:
+  1. Pending transactions are collected into a candidate block by miner nodes.
+  2. Miners repeatedly hash the block header with a changing nonce, searching for an output below a target difficulty threshold.
+  3. The first miner to find a valid hash broadcasts the solved block to the network.
+  4. Other nodes independently verify the hash and the transactions inside the block.
+  5. Once verified, nodes append the block to their local chain and miners restart the race on the new chain tip; the longest valid chain is treated as canonical.
+
+- Trilemma analysis:
+    - Scalability (based on block creation time, TPS): Score 3/10 (~10 min block time on Bitcoin, ~13 sec on legacy Ethereum, 3-30 TPS)
+    - Security: Score 9/10 (51% Attack Threshold - extremely resilient due to massive real-world energy/hardware cost required to attack)
+    - Decentralisation: Score 9/10 (High node participation, tens of thousands of nodes; permissionless mining open to anyone with hardware)
+
+- Cryptocurrencies/Blockchain:
+    - Currencies using this mechanism: Bitcoin (BTC), Litecoin (LTC)
+    - How this algo suits the blockchain:
+      - **Bitcoin (BTC)**: Prioritizes maximal security and censorship-resistance as a decentralized store of value, accepting low throughput as a tradeoff.
+      - **Litecoin (LTC)**: Uses a faster-block-time PoW variant (Scrypt) to function as a lighter, quicker-settling payments-focused counterpart to Bitcoin.
+
+- Smart contract language: None natively (Bitcoin script is intentionally non-Turing-complete); Solidity (legacy pre-Merge Ethereum)
+
+- Layer classification:
+    - Layer 1 or 2: Layer 1
+    - Brief explanation: Both operate as standalone base ledgers providing native settlement and security without depending on another chain.
 
 ---
+
+### Proof of Stake (PoS)
+
+- Name: Proof of Stake (PoS)
+- Core Mechanism: A capital-based consensus model where validators lock up (stake) native tokens as collateral, earning the right to propose and attest to blocks proportional to their stake.
+- Step by step explanation:
+  1. Validators deposit a minimum stake of the native token into a protocol contract to become eligible.
+  2. The protocol pseudo-randomly selects a validator to propose the next block, weighted by stake size.
+  3. A committee of other validators is randomly selected to attest to the validity of the proposed block.
+  4. Once enough attestations are collected, the block is finalized and added to the chain.
+  5. Validators acting maliciously (e.g., double-signing) have a portion of their stake destroyed, a penalty known as "slashing."
+
+- Trilemma analysis:
+    - Scalability (based on block creation time, TPS): Score 7/10 (~12 sec block time on Ethereum, 15-100 TPS base layer, much higher with rollups)
+    - Security: Score 8/10 (Economic Slashing Deterrent - attacks are financially self-destructive since malicious stake gets burned)
+    - Decentralisation: Score 7/10 (High validator count, ~1 million+ validators on Ethereum, though influenced by staking-pool concentration)
+
+- Cryptocurrencies/Blockchain:
+    - Currencies using this mechanism: Ethereum (ETH), Cardano (ADA)
+    - How this algo suits the blockchain:
+      - **Ethereum (ETH)**: Transitioned from PoW to PoS ("The Merge") to cut energy use drastically while retaining a large, open validator set.
+      - **Cardano (ADA)**: Uses the Ouroboros PoS protocol, built on peer-reviewed academic research emphasizing formal security proofs.
+
+- Smart contract language: Solidity, Vyper (Ethereum); Plutus, Marlowe (Cardano)
+
+- Layer classification:
+    - Layer 1 or 2: Layer 1
+    - Brief explanation: Both serve as base settlement layers, with Layer 2 rollups built on top to scale throughput.
+
+---
+
+### Delegated Proof of Stake (DPoS)
+
+- Name: Delegated Proof of Stake (DPoS)
+- Core Mechanism: A representative-democracy consensus model where token holders vote to elect a small set of delegates who take turns producing blocks.
+- Step by step explanation:
+  1. Token holders cast stake-weighted votes to elect a fixed number of block producers (e.g., 21 on EOS).
+  2. Elected delegates are placed into a rotating schedule to take turns producing blocks.
+  3. Each delegate produces a block during their assigned slot, and other delegates verify it.
+  4. Token holders continuously monitor performance and can vote out underperforming or malicious delegates at any time.
+  5. Block producers typically share a portion of block rewards back with the voters who elected them.
+
+- Trilemma analysis:
+    - Scalability (based on block creation time, TPS): Score 9/10 (0.5-3 sec block time, 1,000-4,000+ TPS)
+    - Security: Score 6/10 (Voter Cartel / Collusion Risk - small elected validator set makes collusion among delegates a realistic threat)
+    - Decentralisation: Score 3/10 (Very low producer count, ~20-100 active delegates, though voting itself is open to all token holders)
+
+- Cryptocurrencies/Blockchain:
+    - Currencies using this mechanism: EOS (EOS), TRON (TRX)
+    - How this algo suits the blockchain:
+      - **EOS (EOS)**: Built for high-throughput dApps with fee-less user transactions, trading some decentralization for speed.
+      - **TRON (TRX)**: Optimized for content/media dApps and stablecoin transfers, prioritizing fast, cheap transactions via a small validator set.
+
+- Smart contract language: C++ (EOS); Solidity (TRON)
+
+- Layer classification:
+    - Layer 1 or 2: Layer 1
+    - Brief explanation: Both operate as standalone base chains handling native transaction settlement and dApp execution directly.
+
+---
+
+### Proof of Authority (PoA)
+
+- Name: Proof of Authority (PoA)
+- Core Mechanism: Reputation-based consensus where pre-approved validator accounts validate transactions, staking their real-world identity and corporate reputation.
+- Step by step explanation:
+  1. Candidate entities undergo rigorous identity check verification to become certified validators.
+  2. Approved validators take turns proposing and signing blocks in a circular queue.
+  3. Blocks are verified instantly via cryptographic signature validation of the active validator pool.
+  4. Malicious behavior leads to loss of validator status, public identity exposure, and legal consequences.
+
+- Trilemma analysis:
+    - Scalability (based on block creation time, TPS): Score 9/10 (1 - 5 sec block time, 1,000 - 5,000+ TPS)
+    - Security: Score 7/10 (Single Node / Private Key Compromise - easier to target individual trusted node keys than a broad network)
+    - Decentralisation: Score 2/10 (Very Low node participation, ~10 - 50 nodes entirely controlled under trusted consortiums)
+
+- Cryptocurrencies/Blockchain:
+    - Currencies using this mechanism: VeChain (VET), Palm Network (PALM)
+    - How this algo suits the blockchain:
+      - **VeChain (VET)**: Designed to supply supply-chain enterprise operations with predictable, stable gas fees and structured corporate governance.
+      - **Palm Network (PALM)**: An Ethereum-aligned sidechain focused on NFT drops, using PoA to cut transaction costs and environmental footprint.
+
+- Smart contract language: Solidity (VeChain & Palm Network)
+
+- Layer classification:
+    - Layer 1 or 2: Layer 1 (VeChain) / Layer 2 (Palm Network)
+    - Brief explanation: VeChain is a standalone base ledger (Layer 1) while Palm Network acts as an Ethereum-aligned sidechain (Layer 2) to scale NFT transactions.
+
 
 ### Practical Byzantine Fault Tolerance (PBFT)
 
