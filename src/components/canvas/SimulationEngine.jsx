@@ -76,6 +76,35 @@ const createThickLine = (p1, p2, thickness, color, opacity) => {
   return mesh
 }
 
+const createPoaDocumentBlock = (colorHex = 0x10b981) => {
+  const group = new THREE.Group();
+  // Paper sheet
+  const paperGeo = new THREE.BoxGeometry(0.38, 0.52, 0.04);
+  const paperMat = new THREE.MeshStandardMaterial({
+    color: 0xf1f5f9, // slate 100 (crisp document paper)
+    roughness: 0.8,
+    metalness: 0.1,
+  });
+  const paper = new THREE.Mesh(paperGeo, paperMat);
+  group.add(paper);
+
+  // Wax seal stamp
+  const sealGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.05, 8);
+  const sealMat = new THREE.MeshStandardMaterial({
+    color: colorHex,
+    roughness: 0.2,
+    metalness: 0.7,
+    emissive: colorHex,
+    emissiveIntensity: 0.3,
+  });
+  const seal = new THREE.Mesh(sealGeo, sealMat);
+  seal.rotation.x = Math.PI / 2;
+  seal.position.set(0.08, -0.14, 0.022);
+  group.add(seal);
+
+  return group;
+};
+
 
 export default function SimulationEngine() {
   const { state, dispatch } = useExplorer()
@@ -141,6 +170,8 @@ export default function SimulationEngine() {
   const activeTxPacket = useRef(null) // Transaction packet group
   const dposLines = useRef([]) // Custom tracking lines for DPoS voting & verification
   const posLines = useRef([]) // Custom tracking lines for PoS staking & locks
+  const pohHelixBeads = useRef([]) // Array of bead objects along the clock helix
+  const pohBeadsGroup = useRef(null) // THREE.Group for helix beads
 
 
   // Local React state copies of nodes to render projected HTML label elements
@@ -271,16 +302,18 @@ export default function SimulationEngine() {
         })
       }
     } else if (selectedAlgo === "poh") {
-      nodes.push({ id: "poh-leader", label: "LEADER", type: "poh-leader", x: -2.5, y: 0.2, z: 0, hashCounter: 5000000, time: 0.0, status: "TICKING" })
+      nodes.push({ id: "poh-leader", label: "LEADER", type: "poh-leader", x: -3.5, y: 0.5, z: 0, hashCounter: 5000000, time: 0.0, status: "TICKING" })
       for (let i = 0; i < 3; i++) {
         nodes.push({
           id: `poh-val-${i + 1}`,
           label: `VAL_0${i + 1}`,
           type: "validator",
-          x: 2.5,
-          y: 1.2 - i * 1.2,
-          z: 1.5 - i * 1.5,
-          status: "VERIFYING",
+          x: 2.8,
+          y: 1.4 - i * 1.2,
+          z: -1.2 + i * 1.2,
+          status: "HIDDEN",
+          scale: 1.0,
+          opacity: 0.0
         })
       }
     } else if (selectedAlgo === "poet") {
@@ -486,6 +519,20 @@ export default function SimulationEngine() {
           line.material.dispose();
         });
         posLines.current = [];
+      }
+
+      if (pohHelixBeads.current) {
+        pohHelixBeads.current.forEach(bead => {
+          if (pohBeadsGroup.current) pohBeadsGroup.current.remove(bead.mesh);
+          else threeScene.current?.remove(bead.mesh);
+          bead.mesh.geometry?.dispose();
+          bead.mesh.material?.dispose();
+        });
+        pohHelixBeads.current = [];
+      }
+      if (pohBeadsGroup.current && threeScene.current) {
+        threeScene.current.remove(pohBeadsGroup.current);
+        pohBeadsGroup.current = null;
       }
 
       if (simState.current.selectionBeam) {
@@ -826,7 +873,7 @@ export default function SimulationEngine() {
           color: 0x0f172a,
           roughness: 0.3,
           metalness: 0.7,
-          emissive: 0x3b7dd8,
+          emissive: 0xf0a830, // Amber-gold clock
           emissiveIntensity: 0.3,
         })
         const centerCyl = new THREE.Mesh(meshGeo, meshMat)
@@ -837,7 +884,7 @@ export default function SimulationEngine() {
         for (let i = 0; i < 8; i++) {
           const angle = (i / 8) * Math.PI * 2
           const tickGeo = new THREE.BoxGeometry(0.08, 0.2, 0.08)
-          const tickMat = new THREE.MeshBasicMaterial({ color: 0x3b7dd8 })
+          const tickMat = new THREE.MeshBasicMaterial({ color: 0xf0a830 })
           const tick = new THREE.Mesh(tickGeo, tickMat)
           tick.position.set(0.68 * Math.cos(angle), 0.68 * Math.sin(angle), 0)
           tick.rotation.z = angle + Math.PI / 2
@@ -906,6 +953,8 @@ export default function SimulationEngine() {
           } else if (node.type === "delegate") {
             baseColor = 0x6b4fa0; // Delegate muted purple
           }
+        } else if (selectedAlgo === "poa") {
+          baseColor = 0x5a627a; // Unverified neutral grey
         }
 
         meshGeo = new THREE.SphereGeometry(0.5, 32, 32)
@@ -975,38 +1024,60 @@ export default function SimulationEngine() {
         obj.material?.dispose()
       }
 
-      // Do NOT show PoW blockchain stacks in idle/pre-selection state for PoS
+      // Do NOT show PoW blockchain stacks in idle/pre-selection state for PoS or PoA
       if (selectedAlgo !== "pos") {
         const isDpos = selectedAlgo === "dpos";
-        const blockGeo = isDpos ? createRoundedBoxGeometry(0.5, 0.5, 0.5, 0.08, 4) : new THREE.BoxGeometry(0.5, 0.5, 0.5);
+        const isPoa = selectedAlgo === "poa";
 
-        for (let i = 0; i < 3; i++) {
-          const blockColor = isDpos ? 0x0a9c86 : 0xd4a62e;
-          const blockMat = new THREE.MeshStandardMaterial({
-            color: blockColor,
-            roughness: 0.3,
-            metalness: 0.8,
-            emissive: blockColor,
-            emissiveIntensity: 0.15,
-          })
-          const block = new THREE.Mesh(blockGeo, blockMat)
-          block.position.set(-1.8 + i * 1.2, -1.5, -3.2)
-          
-          if (isDpos) {
-            // Set producer names for the 3 historical blocks
-            block.userData = { producerLabel: `DEL_0${(i % 3) + 1}` };
+        if (isPoa) {
+          // Pre-populate with 3 historical document seals
+          for (let i = 0; i < 3; i++) {
+            const doc = createPoaDocumentBlock(0x10b981);
+            doc.position.set(-1.8 + i * 1.2, -1.5, -3.2);
+            doc.userData = { producerLabel: `AUTH_0${(i % 3) + 1}` };
+            blockchainGroup.current.add(doc);
+            
+            if (i > 0) {
+              const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(-1.8 + (i - 1) * 1.2 + 0.25, -1.5, -3.2),
+                new THREE.Vector3(-1.8 + i * 1.2 - 0.25, -1.5, -3.2)
+              ]);
+              const lineMat = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.4 });
+              const line = new THREE.Line(lineGeo, lineMat);
+              blockchainGroup.current.add(line);
+            }
           }
-          
-          blockchainGroup.current.add(block)
+        } else {
+          const blockGeo = isDpos ? createRoundedBoxGeometry(0.5, 0.5, 0.5, 0.08, 4) : new THREE.BoxGeometry(0.5, 0.5, 0.5);
 
-          if (i > 0) {
-            const lineGeo = new THREE.BufferGeometry().setFromPoints([
-              new THREE.Vector3(-1.8 + (i - 1) * 1.2 + 0.25, -1.5, -3.2),
-              new THREE.Vector3(-1.8 + i * 1.2 - 0.25, -1.5, -3.2)
-            ])
-            const lineMat = new THREE.LineBasicMaterial({ color: isDpos ? 0x0a9c86 : 0x475569 })
-            const line = new THREE.Line(lineGeo, lineMat)
-            blockchainGroup.current.add(line)
+          for (let i = 0; i < 3; i++) {
+            const blockColor = isDpos ? 0x0a9c86 : 0xd4a62e;
+            const blockMat = new THREE.MeshStandardMaterial({
+              color: blockColor,
+              roughness: 0.3,
+              metalness: 0.8,
+              emissive: blockColor,
+              emissiveIntensity: 0.15,
+            })
+            const block = new THREE.Mesh(blockGeo, blockMat)
+            block.position.set(-1.8 + i * 1.2, -1.5, -3.2)
+            
+            if (isDpos) {
+              // Set producer names for the 3 historical blocks
+              block.userData = { producerLabel: `DEL_0${(i % 3) + 1}` };
+            }
+            
+            blockchainGroup.current.add(block)
+
+            if (i > 0) {
+              const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(-1.8 + (i - 1) * 1.2 + 0.25, -1.5, -3.2),
+                new THREE.Vector3(-1.8 + i * 1.2 - 0.25, -1.5, -3.2)
+              ])
+              const lineMat = new THREE.LineBasicMaterial({ color: isDpos ? 0x0a9c86 : 0x475569 })
+              const line = new THREE.Line(lineGeo, lineMat)
+              blockchainGroup.current.add(line)
+            }
           }
         }
       }
@@ -1443,6 +1514,119 @@ export default function SimulationEngine() {
             if (obj.shell) {
               obj.shell.material.color.setHex(emissive);
             }
+          } else if (selectedAlgo === "poa") {
+            // Apply position for node
+            obj.mesh.position.set(node.x, node.y, node.z);
+            
+            // Special ring detachment animation for revoked authority node
+            if (obj.shell) {
+              if (node.status === "REVOKED_GREY") {
+                if (obj.shell.position.y === node.y) {
+                  // Initialize falling physics
+                  obj.shell.userData = { yVel: -0.05, yPos: node.y };
+                }
+                if (obj.shell.userData && obj.shell.userData.yPos !== undefined) {
+                  obj.shell.userData.yVel -= 0.005 * speed;
+                  obj.shell.userData.yPos += obj.shell.userData.yVel * speed;
+                  obj.shell.position.set(node.x, obj.shell.userData.yPos, node.z);
+                  
+                  // Rotate randomly like a falling ring
+                  obj.shell.rotation.x += 0.08 * speed;
+                  obj.shell.rotation.z += 0.04 * speed;
+                  
+                  // Fade out opacity
+                  obj.shell.material.transparent = true;
+                  obj.shell.material.opacity = Math.max(0, 0.35 * (1 + obj.shell.userData.yPos / 2));
+                }
+              } else {
+                obj.shell.position.set(node.x, node.y, node.z);
+              }
+            }
+            
+            // Apply scale
+            const s = node.scale !== undefined ? node.scale : 1.0;
+            obj.mesh.scale.set(s, s, s);
+            if (obj.shell && node.status !== "REVOKED_GREY") obj.shell.scale.set(s, s, s);
+
+            // Apply opacity
+            const opacity = node.opacity !== undefined ? node.opacity : 1.0;
+            const setOpacity = (m, op) => {
+              if (m.material) {
+                m.material.transparent = op < 1.0;
+                m.material.opacity = op;
+              }
+            };
+            if (obj.mesh.isGroup) {
+              obj.mesh.traverse(child => setOpacity(child, opacity));
+            } else {
+              setOpacity(obj.mesh, opacity);
+            }
+            if (obj.shell && node.status !== "REVOKED_GREY") {
+              obj.shell.material.transparent = true;
+              obj.shell.material.opacity = opacity * 0.35;
+            }
+
+            // Custom coloring for PoA nodes
+            let color = 0x5a627a; // Unverified neutral grey
+            let emissive = 0x5a627a;
+            let intensity = 0.1;
+
+            if (node.type === "pool") {
+              // Seal of Authority color
+              color = 0x10b981; // emerald
+              emissive = 0x10b981;
+              intensity = 0.3;
+              if (node.status === "SEAL_GLOW" || node.status === "ACTIVE") {
+                intensity = 0.7;
+              }
+            } else if (node.type === "authority") {
+              if (node.status === "REVOKED") {
+                // Flash warning red
+                const isFlash = Math.sin(frame * 0.4) > 0;
+                color = isFlash ? 0xe24a4a : 0x3a3f4a;
+                emissive = color;
+                intensity = isFlash ? 0.95 : 0.1;
+              } else if (node.status === "REVOKED_GREY") {
+                color = 0x3a3f4a; // dead grey
+                emissive = 0x3a3f4a;
+                intensity = 0.05;
+              } else if (node.status === "VERIFIED" || node.status === "KYC_OK") {
+                color = 0x3b7dd8; // verified blue
+                emissive = 0x3b7dd8;
+                intensity = 0.25;
+              } else if (node.status === "PROPOSING" || node.status === "ACTIVE_SLOT") {
+                color = 0x10b981; // active green
+                emissive = 0x10b981;
+                intensity = 0.7;
+              } else if (node.status === "VERIFYING") {
+                color = 0x4a90e2; // blue verified sweep
+                emissive = 0x4a90e2;
+                intensity = 0.6;
+              } else {
+                // UNVERIFIED
+                color = 0x5a627a;
+                emissive = 0x5a627a;
+                intensity = 0.1;
+              }
+            }
+
+            // Apply color to mesh
+            if (obj.mesh.material) {
+              obj.mesh.material.color.setHex(color);
+              obj.mesh.material.emissive.setHex(emissive);
+              obj.mesh.material.emissiveIntensity = intensity;
+            } else {
+              obj.mesh.traverse(child => {
+                if (child.material) {
+                  child.material.color.setHex(color);
+                  child.material.emissive.setHex(emissive);
+                  child.material.emissiveIntensity = intensity;
+                }
+              });
+            }
+            if (obj.shell && node.status !== "REVOKED_GREY") {
+              obj.shell.material.color.setHex(emissive);
+            }
           } else if (selectedAlgo === "pos") {
             // Apply position
             obj.mesh.position.set(node.x, node.y, node.z);
@@ -1537,6 +1721,76 @@ export default function SimulationEngine() {
                   child.material.color.setHex(color);
                   child.material.emissive.setHex(emissive);
                   child.material.emissiveIntensity = intensity;
+                }
+              });
+            }
+            if (obj.shell) {
+              obj.shell.material.color.setHex(emissive);
+            }
+          } else if (selectedAlgo === "poh") {
+            // Apply position, scale, opacity
+            obj.mesh.position.set(node.x, node.y, node.z);
+            if (obj.shell) obj.shell.position.set(node.x, node.y, node.z);
+            
+            const s = node.scale !== undefined ? node.scale : 1.0;
+            obj.mesh.scale.set(s, s, s);
+            if (obj.shell) obj.shell.scale.set(s, s, s);
+
+            const opacity = node.opacity !== undefined ? node.opacity : 1.0;
+            const setOpacity = (m, op) => {
+              if (m.material) {
+                m.material.transparent = op < 1.0;
+                m.material.opacity = op;
+              }
+            };
+            if (obj.mesh.isGroup) {
+              obj.mesh.traverse(child => setOpacity(child, opacity));
+            } else {
+              setOpacity(obj.mesh, opacity);
+            }
+            if (obj.shell) {
+              obj.shell.material.transparent = true;
+              obj.shell.material.opacity = opacity * 0.35;
+            }
+
+            // Custom coloring for PoH nodes
+            let color = 0x3b7dd8; // Default validator blue
+            let emissive = 0x3b7dd8;
+            let intensity = 0.2;
+
+            if (node.type === "poh-leader") {
+              color = 0xf0a830; // warm amber-gold
+              emissive = 0xf0a830;
+              intensity = 0.5 + 0.15 * Math.sin(frame * 0.1 * speed);
+            } else if (node.type === "validator") {
+              if (node.status === "HIDDEN") {
+                // hidden
+              } else if (node.status === "VERIFIED") {
+                color = 0x4ad8a0; // teal-green verified
+                emissive = 0x4ad8a0;
+                intensity = 0.65;
+              } else {
+                // VERIFYING
+                color = 0x3b7dd8;
+                emissive = 0x3b7dd8;
+                intensity = 0.3 + 0.2 * Math.sin(frame * 0.08 * speed);
+              }
+            }
+
+            if (obj.mesh.material) {
+              obj.mesh.material.color.setHex(color);
+              if (obj.mesh.material.emissive) {
+                obj.mesh.material.emissive.setHex(emissive);
+                obj.mesh.material.emissiveIntensity = intensity;
+              }
+            } else {
+              obj.mesh.traverse(child => {
+                if (child.material) {
+                  child.material.color.setHex(color);
+                  if (child.material.emissive) {
+                    child.material.emissive.setHex(emissive);
+                    child.material.emissiveIntensity = intensity;
+                  }
                 }
               });
             }
@@ -1809,6 +2063,18 @@ export default function SimulationEngine() {
       if (simState.current.posBlockGlow) {
         dispose3DObject(simState.current.posBlockGlow, scene)
         simState.current.posBlockGlow = null
+      }
+
+      if (pohHelixBeads.current) {
+        pohHelixBeads.current.forEach(bead => {
+          dispose3DObject(bead.mesh, scene)
+        })
+        pohHelixBeads.current = []
+      }
+
+      if (pohBeadsGroup.current) {
+        dispose3DObject(pohBeadsGroup.current, scene)
+        pohBeadsGroup.current = null
       }
 
       renderer.dispose()
@@ -3136,22 +3402,336 @@ export default function SimulationEngine() {
     else if (selectedAlgo === "poa") {
       const center = nodes.find(n => n.id === "consensus-center")
       const auths = nodes.filter(n => n.type === "authority")
+      const centerPos = new THREE.Vector3(center.x, center.y, center.z)
 
+      // Step 1: Identity Verification (0 to 20)
       if (currentProg < 20) {
-        auths.forEach((a, idx) => { a.isWinner = idx === 0; a.signingStatus = "STANDBY" })
-      } else if (currentProg >= 20 && currentProg < 40) {
-        if (frame % 24 === 0 && isPlaying) {
-          auths.forEach(a => {
-            spawn3DParticle(new THREE.Vector3(center.x, center.y, center.z), new THREE.Vector3(a.x, a.y, a.z), colorHex, "key-auth")
-          })
+        // Reset subsequent steps' transient states
+        if (dposLines.current.length > 0) {
+          dposLines.current.forEach(line => scene.remove(line));
+          dposLines.current = [];
         }
-      } else if (currentProg >= 40 && currentProg < 60) {
-        const leader = auths.find(a => a.isWinner)
-        if (leader) {
-          leader.signingStatus = "PROPOSING"
-          if (frame % 24 === 0 && isPlaying) {
-            spawn3DParticle(new THREE.Vector3(leader.x, leader.y, leader.z), new THREE.Vector3(center.x, center.y, center.z), colorHex, "block-prop")
+        if (simState.current.posBlock) {
+          scene.remove(simState.current.posBlock);
+          simState.current.posBlock.traverse(child => {
+            child.geometry?.dispose();
+            child.material?.dispose();
+          });
+          simState.current.posBlock = null;
+        }
+        if (simState.current.posBlockGlow) {
+          scene.remove(simState.current.posBlockGlow);
+          simState.current.posBlockGlow.geometry?.dispose();
+          simState.current.posBlockGlow.material?.dispose();
+          simState.current.posBlockGlow = null;
+        }
+        center.status = "ACTIVE"
+        auths.forEach(a => {
+          a.scale = 1.0;
+          a.opacity = 1.0;
+        });
+
+        // Individually verify AUTH nodes one at a time based on currentProg
+        auths.forEach((a, idx) => {
+          const triggerProg = 3 + idx * 4; // 3, 7, 11, 15
+          if (currentProg >= triggerProg) {
+            if (a.status !== "KYC_OK") {
+              a.status = "KYC_OK";
+              // Trigger a small checkmark / signature circle pulse at node coordinates
+              if (scene) {
+                const pulseGeo = new THREE.RingGeometry(0.3, 0.8, 16);
+                const pulseMat = new THREE.MeshBasicMaterial({
+                  color: 0x3b7dd8, // verified blue
+                  side: THREE.DoubleSide,
+                  transparent: true,
+                  opacity: 0.8,
+                });
+                const pulse = new THREE.Mesh(pulseGeo, pulseMat);
+                pulse.position.set(a.x, a.y + 0.3, a.z);
+                pulse.rotation.x = Math.PI / 2;
+                scene.add(pulse);
+
+                threeParticles.current.push({
+                  mesh: pulse,
+                  type: "sig-pulse",
+                  life: 1.0,
+                  decay: 0.05 * speed
+                });
+              }
+            }
+          } else {
+            a.status = "UNVERIFIED";
           }
+        });
+      }
+      
+      // Step 2: Key Authorization (20 to 40)
+      else if (currentProg >= 20 && currentProg < 40) {
+        const t = (currentProg - 20) / 20;
+        auths.forEach(a => {
+          a.status = "KYC_OK";
+          a.scale = 1.0;
+          a.opacity = 1.0;
+        });
+
+        // Initialize key registration lines if not present
+        if (dposLines.current.length === 0 && scene) {
+          auths.forEach(a => {
+            const startPos = new THREE.Vector3(a.x, a.y, a.z);
+            const line = createThickLine(startPos, centerPos, 0.012, 0x10b981, 0.3);
+            scene.add(line);
+            dposLines.current.push(line);
+          });
+        }
+
+        // Animate key registration pulses along the lines
+        if (frame % 28 === 0 && isPlaying) {
+          auths.forEach(a => {
+            const startPos = new THREE.Vector3(a.x, a.y, a.z);
+            spawn3DParticle(startPos, centerPos, 0x10b981, "key-auth");
+          });
+        }
+
+        // Medallion brightens and glows on arrival
+        if (t >= 0.7) {
+          center.status = "SEAL_GLOW";
+          if (!simState.current.posAttestationFired && scene) {
+            simState.current.posAttestationFired = true;
+            // Spawn medallion ripple
+            const ringGeo = new THREE.RingGeometry(0.8, 2.2, 32);
+            const ringMat = new THREE.MeshBasicMaterial({
+              color: 0x10b981,
+              side: THREE.DoubleSide,
+              transparent: true,
+              opacity: 0.7
+            });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.position.set(center.x, center.y, center.z);
+            ring.rotation.x = Math.PI / 2;
+            scene.add(ring);
+            
+            threeParticles.current.push({
+              mesh: ring,
+              type: "sig-pulse",
+              life: 1.0,
+              decay: 0.03 * speed
+            });
+          }
+        } else {
+          center.status = "ACTIVE";
+          simState.current.posAttestationFired = false;
+        }
+      }
+
+      // Step 3: Block Proposal (40 to 60)
+      else if (currentProg >= 40 && currentProg < 60) {
+        const t = (currentProg - 40) / 20;
+
+        // Clean Step 2 lines
+        if (dposLines.current.length > 0) {
+          dposLines.current.forEach(line => scene.remove(line));
+          dposLines.current = [];
+        }
+
+        // AUTH_01 (proposer in active slot) brightens & pops
+        auths.forEach((a, idx) => {
+          if (idx === 0) {
+            a.status = "PROPOSING";
+            a.scale = 1.25;
+          } else {
+            a.status = "KYC_OK";
+            a.scale = 1.0;
+          }
+          a.opacity = 1.0;
+        });
+
+        // Phase 3A: 0% to 55% step progress (40 to 51 prog) - Grow beveled block/document above AUTH_01
+        if (t < 0.55) {
+          const t_grow = t / 0.55;
+          const ease_scale = t_grow * t_grow * (3 - 2 * t_grow);
+          const propNode = auths[0];
+          
+          if (!simState.current.posBlock && scene) {
+            const docBlock = createPoaDocumentBlock(0x10b981);
+            docBlock.position.set(propNode.x, propNode.y + 1.2, propNode.z);
+            docBlock.scale.set(0, 0, 0);
+            scene.add(docBlock);
+            simState.current.posBlock = docBlock;
+          }
+          
+          if (simState.current.posBlock) {
+            simState.current.posBlock.position.set(propNode.x, propNode.y + 1.2, propNode.z);
+            simState.current.posBlock.scale.set(ease_scale, ease_scale, ease_scale);
+          }
+        }
+        // Phase 3B: 55% to 100% step progress (51 to 60 prog) - Document slides to center seal
+        else {
+          const t_travel = (t - 0.55) / 0.45;
+          const ease_travel = t_travel * t_travel * (3 - 2 * t_travel);
+          const propNode = auths[0];
+          const startPos = new THREE.Vector3(propNode.x, propNode.y + 1.2, propNode.z);
+          const endPos = new THREE.Vector3(center.x, center.y + 0.15, center.z);
+          
+          if (simState.current.posBlock) {
+            simState.current.posBlock.position.lerpVectors(startPos, endPos, ease_travel);
+            // Spin doc slightly for presentation feel
+            simState.current.posBlock.rotation.y = ease_travel * Math.PI * 0.5;
+          }
+          if (t_travel > 0.9) {
+            center.status = "SEAL_GLOW";
+          }
+        }
+      }
+
+      // Step 4: Signature Audit (60 to 80)
+      else if (currentProg >= 60 && currentProg < 80) {
+        const t = (currentProg - 60) / 20;
+
+        auths[0].status = "KYC_OK";
+        auths[0].scale = 1.0;
+
+        // Position proposed document at center seal
+        if (simState.current.posBlock) {
+          simState.current.posBlock.position.set(center.x, center.y + 0.15, center.z);
+          simState.current.posBlock.rotation.y = Math.PI * 0.5;
+        }
+
+        // Auditors (AUTH_02, AUTH_03, AUTH_04) send audit pulses to proposed block
+        const auditors = [auths[1], auths[2], auths[3]];
+        auditors.forEach(a => {
+          a.status = "VERIFYING";
+        });
+
+        // Phase 4A: 0% to 50% step progress (60 to 70 prog) - Emit audit lines
+        if (t < 0.5) {
+          const t_line = t / 0.5;
+          if (dposLines.current.length === 0 && scene) {
+            auditors.forEach(a => {
+              const startPos = new THREE.Vector3(a.x, a.y, a.z);
+              const line = createThickLine(startPos, centerPos, 0.015, 0x10b981, 0.8);
+              scene.add(line);
+              dposLines.current.push(line);
+            });
+          }
+          
+          if (dposLines.current.length > 0) {
+            dposLines.current.forEach((line, idx) => {
+              const a = auditors[idx];
+              const startPos = new THREE.Vector3(a.x, a.y, a.z);
+              const currentEnd = new THREE.Vector3().lerpVectors(startPos, centerPos, t_line);
+              line.position.copy(new THREE.Vector3().addVectors(startPos, currentEnd).multiplyScalar(0.5));
+              const dist = startPos.distanceTo(currentEnd);
+              line.scale.set(1, Math.max(0.001, dist / startPos.distanceTo(centerPos)), 1);
+            });
+          }
+        }
+        // Phase 4B: 50% to 85% step progress (70 to 77 prog) - Confirm ring pulses
+        else if (t >= 0.5 && t < 0.85) {
+          if (dposLines.current.length > 0) {
+            dposLines.current.forEach(line => {
+              if (line.material) line.material.opacity = 0.25;
+            });
+          }
+          
+          if (!simState.current.posWinnerPulseFired && scene) {
+            simState.current.posWinnerPulseFired = true;
+            auditors.forEach(a => {
+              a.status = "KYC_OK";
+              const ringGeo = new THREE.RingGeometry(0.5, 1.2, 32);
+              const ringMat = new THREE.MeshBasicMaterial({
+                color: 0x10b981,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.8
+              });
+              const ring = new THREE.Mesh(ringGeo, ringMat);
+              ring.position.set(a.x, a.y, a.z);
+              ring.rotation.x = Math.PI / 2;
+              scene.add(ring);
+              
+              threeParticles.current.push({
+                mesh: ring,
+                type: "sig-pulse",
+                life: 1.0,
+                decay: 0.04 * speed
+              });
+            });
+          }
+        }
+        // Phase 4C: 85% to 100% step progress (77 to 80 prog) - Confirmed glow & slide to ledger tip
+        else {
+          if (dposLines.current.length > 0) {
+            dposLines.current.forEach(line => scene.remove(line));
+            dposLines.current = [];
+          }
+
+          if (!simState.current.posBlockGlowCreated && scene && simState.current.posBlock) {
+            simState.current.posBlockGlowCreated = true;
+            const glowGeo = new THREE.BoxGeometry(0.44, 0.58, 0.08);
+            const glowMat = new THREE.MeshBasicMaterial({
+              color: 0x10b981,
+              wireframe: true,
+              transparent: true,
+              opacity: 0.65
+            });
+            const glowMesh = new THREE.Mesh(glowGeo, glowMat);
+            glowMesh.position.copy(simState.current.posBlock.position);
+            glowMesh.rotation.copy(simState.current.posBlock.rotation);
+            scene.add(glowMesh);
+            simState.current.posBlockGlow = glowMesh;
+          }
+
+          // Slide document to ledger chain tip (1.8, -1.5, -3.2)
+          const t_slide = (t - 0.85) / 0.15;
+          const ease_slide = t_slide * t_slide;
+          const ledgerTip = new THREE.Vector3(1.8, -1.5, -3.2);
+          
+          if (simState.current.posBlock) {
+            simState.current.posBlock.position.lerpVectors(centerPos, ledgerTip, ease_slide);
+            // Flatten rotation for stack integration
+            simState.current.posBlock.rotation.y = (1 - ease_slide) * Math.PI * 0.5;
+            if (simState.current.posBlockGlow) {
+              simState.current.posBlockGlow.position.copy(simState.current.posBlock.position);
+              simState.current.posBlockGlow.rotation.copy(simState.current.posBlock.rotation);
+            }
+          }
+        }
+      }
+
+      // Step 5: Authority Revocation (80 to 100)
+      else if (currentProg >= 80 && currentProg <= 100) {
+        const t = (currentProg - 80) / 20;
+
+        // Cleanup Step 4 glow
+        if (simState.current.posBlockGlow) {
+          scene.remove(simState.current.posBlockGlow);
+          simState.current.posBlockGlow = null;
+        }
+
+        // Ensure proposed block is added to ledger stack on step end
+        if (simState.current.posBlock) {
+          simState.current.posBlock.position.set(1.8, -1.5, -3.2);
+          simState.current.posBlock.rotation.set(0, 0, 0);
+          blockchainGroup.current.add(simState.current.posBlock);
+          simState.current.posBlock = null;
+        }
+
+        const badNode = auths[2]; // AUTH_03 is dishonest
+        
+        // 0.0s - 0.25s (80 to 85 prog) - Flash badNode red
+        if (t < 0.25) {
+          badNode.status = "REVOKED";
+        }
+        // 0.25s - 0.6s (85 to 92 prog) - Shrink, desaturate, fall ring
+        else if (t >= 0.25 && t < 0.6) {
+          const t_fall = (t - 0.25) / 0.35;
+          badNode.status = "REVOKED_GREY";
+          badNode.scale = 1.0 - 0.6 * t_fall; // Shrink
+        }
+        // 0.6s onward (92 to 100 prog) - Label is REVOKED
+        else {
+          badNode.status = "REVOKED_GREY";
+          badNode.scale = 0.4;
         }
       }
     }
@@ -3206,15 +3786,368 @@ export default function SimulationEngine() {
         leader.time = (frame * 0.3 * speed).toFixed(1)
       }
 
-      if (currentProg >= 20 && currentProg < 40) {
-        if (frame % 20 === 0 && isPlaying) {
-          spawn3DParticle(new THREE.Vector3(-5, 0.5, 0), new THREE.Vector3(leader.x, leader.y, leader.z), 0xf59e0b, "tx")
+      // Ensure beads group exists in scene
+      if (!pohBeadsGroup.current && scene) {
+        pohBeadsGroup.current = new THREE.Group();
+        scene.add(pohBeadsGroup.current);
+      }
+
+      // Continuous ticking of the amber VDF helix clock in background (active in all steps!)
+      if (isPlaying) {
+        // Spawn an amber bead every 10 frames (faster at higher speeds)
+        const spawnInterval = Math.max(2, Math.floor(10 / speed));
+        if (frame % spawnInterval === 0) {
+          if (!simState.current.pohTickIndex) simState.current.pohTickIndex = 0;
+          simState.current.pohTickIndex++;
+
+          const beadGeo = new THREE.SphereGeometry(0.12, 16, 16);
+          const beadMat = new THREE.MeshStandardMaterial({
+            color: 0xf0a830, // Amber-gold
+            emissive: 0xf0a830,
+            emissiveIntensity: 0.6,
+          });
+          const beadMesh = new THREE.Mesh(beadGeo, beadMat);
+          
+          const idx = simState.current.pohTickIndex;
+          const a = idx * 0.45;
+          // Helix wraps around X axis from -3.5 to 0.5
+          const x = -3.5 + (idx % 35) * 0.14;
+          const y = 0.5 + 0.6 * Math.cos(a);
+          const z = 0.6 * Math.sin(a);
+          beadMesh.position.set(x, y, z);
+          
+          if (pohBeadsGroup.current) {
+            pohBeadsGroup.current.add(beadMesh);
+          }
+          
+          pohHelixBeads.current.push({
+            mesh: beadMesh,
+            index: idx,
+            x, y, z,
+            angle: a,
+            txAttached: false,
+          });
+
+          // Limit count to 25 to keep helix centered and compact
+          if (pohHelixBeads.current.length > 25) {
+            const oldBead = pohHelixBeads.current.shift();
+            if (oldBead) {
+              if (pohBeadsGroup.current) pohBeadsGroup.current.remove(oldBead.mesh);
+              oldBead.mesh.geometry?.dispose();
+              oldBead.mesh.material?.dispose();
+            }
+          }
         }
-      } else if (currentProg >= 60 && currentProg < 80) {
-        if (frame % 16 === 0 && isPlaying) {
-          validators.forEach(v => {
-            spawn3DParticle(new THREE.Vector3(leader.x, leader.y, leader.z), new THREE.Vector3(v.x, v.y, v.z), 0x10b981, "history-seq")
-          })
+      }
+
+      // Easing tail effects for beads: newest is large/bright, oldest fades/shrinks
+      pohHelixBeads.current.forEach((bead, i) => {
+        const ageRatio = i / pohHelixBeads.current.length;
+        const targetScale = bead.txAttached ? 1.1 : (0.35 + 0.65 * ageRatio);
+        bead.mesh.scale.set(targetScale, targetScale, targetScale);
+        if (bead.mesh.material) {
+          bead.mesh.material.transparent = true;
+          bead.mesh.material.opacity = 0.15 + 0.85 * ageRatio;
+        }
+      });
+
+      // Step 1: Sequential Ticking (0 to 20)
+      if (currentProg < 20) {
+        // Reset validators to hidden state
+        validators.forEach(v => {
+          v.status = "HIDDEN";
+          v.opacity = 0.0;
+        });
+
+        // Reset step 3/4 objects
+        if (dposLines.current.length > 0) {
+          dposLines.current.forEach(line => scene.remove(line));
+          dposLines.current = [];
+        }
+        if (simState.current.blockGlowMesh) {
+          scene.remove(simState.current.blockGlowMesh);
+          simState.current.blockGlowMesh.geometry?.dispose();
+          simState.current.blockGlowMesh.material?.dispose();
+          simState.current.blockGlowMesh = null;
+        }
+        if (simState.current.posBlock) {
+          scene.remove(simState.current.posBlock);
+          simState.current.posBlock.geometry?.dispose();
+          simState.current.posBlock.material?.dispose();
+          simState.current.posBlock = null;
+        }
+        if (simState.current.posBlockGlow) {
+          scene.remove(simState.current.posBlockGlow);
+          simState.current.posBlockGlow.geometry?.dispose();
+          simState.current.posBlockGlow.material?.dispose();
+          simState.current.posBlockGlow = null;
+        }
+
+        simState.current.pohVerificationArcsCreated = false;
+        simState.current.pohWinnerPulseFired = false;
+      }
+
+      // Step 2: Transaction Anchoring (20 to 40)
+      else if (currentProg >= 20 && currentProg < 40) {
+        validators.forEach(v => {
+          v.status = "HIDDEN";
+          v.opacity = 0.0;
+        });
+
+        // Spawn a teal transaction packet from off-screen top-left
+        if (!activeTxPacket.current && scene && frame % 40 === 0 && isPlaying) {
+          const txGeo = new THREE.SphereGeometry(0.15, 8, 8);
+          const txMat = new THREE.MeshBasicMaterial({ color: 0x4ad8a0 });
+          const txMesh = new THREE.Mesh(txGeo, txMat);
+          txMesh.position.set(-5, 3.2, 1.5);
+          scene.add(txMesh);
+          activeTxPacket.current = txMesh;
+          simState.current.pohTxProg = 0;
+        }
+
+        if (activeTxPacket.current) {
+          simState.current.pohTxProg += 0.035 * speed;
+          const latestBead = pohHelixBeads.current[pohHelixBeads.current.length - 1];
+          if (latestBead) {
+            const startPos = new THREE.Vector3(-5, 3.2, 1.5);
+            const endPos = new THREE.Vector3(latestBead.x, latestBead.y, latestBead.z);
+            activeTxPacket.current.position.lerpVectors(startPos, endPos, Math.min(1.0, simState.current.pohTxProg));
+
+            if (simState.current.pohTxProg >= 1.0) {
+              // Anchor transaction into clock bead
+              scene.remove(activeTxPacket.current);
+              activeTxPacket.current.geometry?.dispose();
+              activeTxPacket.current.material?.dispose();
+              activeTxPacket.current = null;
+
+              latestBead.txAttached = true;
+              if (latestBead.mesh.material) {
+                latestBead.mesh.material.color.setHex(0x4ad8a0); // green
+                latestBead.mesh.material.emissive.setHex(0x4ad8a0);
+              }
+
+              // Pulse ring at anchoring coordinate
+              const ringGeo = new THREE.RingGeometry(0.2, 0.6, 16);
+              const ringMat = new THREE.MeshBasicMaterial({
+                color: 0x4ad8a0,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.8
+              });
+              const ring = new THREE.Mesh(ringGeo, ringMat);
+              ring.position.copy(latestBead.mesh.position);
+              scene.add(ring);
+
+              threeParticles.current.push({
+                mesh: ring,
+                type: "sig-pulse",
+                life: 1.0,
+                decay: 0.05 * speed
+              });
+            }
+          } else {
+            scene.remove(activeTxPacket.current);
+            activeTxPacket.current = null;
+          }
+        }
+      }
+
+      // Step 3: Block Packaging (40 to 60)
+      else if (currentProg >= 40 && currentProg < 60) {
+        const t = (currentProg - 40) / 20;
+        validators.forEach(v => {
+          v.status = "HIDDEN";
+          v.opacity = 0.0;
+        });
+
+        // Phase 3A: 0% to 50% step progress (40 to 50 prog) - Bounding wireframe capsule
+        if (t < 0.5) {
+          if (!simState.current.blockGlowMesh && scene) {
+            const capGeo = new THREE.BoxGeometry(2.0, 1.5, 1.5);
+            const capMat = new THREE.MeshBasicMaterial({
+              color: 0xe8823c, // warm orange wireframe
+              wireframe: true,
+              transparent: true,
+              opacity: 0.45
+            });
+            const cap = new THREE.Mesh(capGeo, capMat);
+            cap.position.set(-1.8, 0.5, 0);
+            scene.add(cap);
+            simState.current.blockGlowMesh = cap;
+          }
+        }
+        // Phase 3B: 55% to 100% step progress (50 to 60 prog) - Compress capsule and beads into orange block
+        else {
+          const t_compress = (t - 0.5) / 0.5;
+          const ease_compress = t_compress * t_compress * (3 - 2 * t_compress);
+
+          if (simState.current.blockGlowMesh) {
+            const scale = 1.0 - 0.8 * ease_compress;
+            simState.current.blockGlowMesh.scale.set(scale, scale, scale);
+            simState.current.blockGlowMesh.material.opacity = 0.45 * (1.0 - ease_compress);
+          }
+
+          if (!simState.current.posBlock && scene) {
+            const blockGeo = new THREE.BoxGeometry(0.55, 0.55, 0.55);
+            const blockMat = new THREE.MeshStandardMaterial({
+              color: 0xe8823c, // warm orange
+              roughness: 0.25,
+              metalness: 0.8,
+              emissive: 0xe8823c,
+              emissiveIntensity: 0.4,
+            });
+            const block = new THREE.Mesh(blockGeo, blockMat);
+            block.position.set(-1.8, 0.5, 0);
+            block.scale.set(0, 0, 0);
+            scene.add(block);
+            simState.current.posBlock = block;
+          }
+
+          if (simState.current.posBlock) {
+            simState.current.posBlock.scale.set(ease_compress, ease_compress, ease_compress);
+          }
+        }
+      }
+
+      // Step 4: Parallel Verification (60 to 80)
+      else if (currentProg >= 60 && currentProg < 80) {
+        const t = (currentProg - 60) / 20;
+
+        // Clean Step 3 capsule
+        if (simState.current.blockGlowMesh) {
+          scene.remove(simState.current.blockGlowMesh);
+          simState.current.blockGlowMesh = null;
+        }
+
+        // Keep orange block centered
+        if (simState.current.posBlock) {
+          simState.current.posBlock.position.set(-1.8, 0.5, 0);
+          simState.current.posBlock.scale.set(1, 1, 1);
+        }
+
+        // Animate validators fading in from opacity 0 to 1
+        validators.forEach(v => {
+          v.status = "VERIFYING";
+          v.opacity = Math.min(1.0, t / 0.35); // quick fade in
+        });
+
+        // Phase 4A: Draw thin audit lines from block to each validator
+        if (t < 0.5) {
+          const t_line = t / 0.5;
+          const blockPos = new THREE.Vector3(-1.8, 0.5, 0);
+          
+          if (dposLines.current.length === 0 && scene) {
+            validators.forEach(v => {
+              const startPos = new THREE.Vector3(v.x, v.y, v.z);
+              const line = createThickLine(blockPos, startPos, 0.012, 0xe8823c, 0.5);
+              scene.add(line);
+              dposLines.current.push(line);
+            });
+          }
+
+          if (dposLines.current.length > 0) {
+            dposLines.current.forEach((line, idx) => {
+              const v = validators[idx];
+              const startPos = new THREE.Vector3(v.x, v.y, v.z);
+              const currentEnd = new THREE.Vector3().lerpVectors(blockPos, startPos, t_line);
+              line.position.copy(new THREE.Vector3().addVectors(blockPos, currentEnd).multiplyScalar(0.5));
+              const dist = blockPos.distanceTo(currentEnd);
+              line.scale.set(1, Math.max(0.001, dist / blockPos.distanceTo(startPos)), 1);
+            });
+          }
+        }
+        // Phase 4B: 50% to 85% step progress (70 to 77 prog) - Verification progress arcs around validators
+        else if (t >= 0.5 && t < 0.85) {
+          if (dposLines.current.length > 0) {
+            dposLines.current.forEach(line => {
+              if (line.material) line.material.opacity = 0.2;
+            });
+          }
+
+          if (!simState.current.pohVerificationArcsCreated && scene) {
+            simState.current.pohVerificationArcsCreated = true;
+            validators.forEach(v => {
+              // Create checking ring pulse
+              const ringGeo = new THREE.RingGeometry(0.55, 0.72, 32);
+              const ringMat = new THREE.MeshBasicMaterial({
+                color: 0x3b7dd8, // validator blue checking
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.8
+              });
+              const ring = new THREE.Mesh(ringGeo, ringMat);
+              ring.position.set(v.x, v.y, v.z);
+              ring.rotation.x = Math.PI / 2;
+              scene.add(ring);
+
+              threeParticles.current.push({
+                mesh: ring,
+                type: "sig-pulse",
+                life: 1.0,
+                decay: 0.03 * speed
+              });
+            });
+          }
+        }
+        // Phase 4C: 85% to 100% step progress (77 to 80 prog) - Block glows
+        else {
+          if (dposLines.current.length > 0) {
+            dposLines.current.forEach(line => scene.remove(line));
+            dposLines.current = [];
+          }
+
+          if (!simState.current.posBlockGlow && scene && simState.current.posBlock) {
+            simState.current.posBlockGlow = true; // flag
+            const glowGeo = new THREE.BoxGeometry(0.62, 0.62, 0.62);
+            const glowMat = new THREE.MeshBasicMaterial({
+              color: 0x4ad8a0,
+              wireframe: true,
+              transparent: true,
+              opacity: 0.5
+            });
+            const glow = new THREE.Mesh(glowGeo, glowMat);
+            glow.position.copy(simState.current.posBlock.position);
+            scene.add(glow);
+            simState.current.blockGlowMesh = glow; // Reuse blockGlowMesh for Step 4 confirmed glow
+          }
+        }
+      }
+
+      // Step 5: State Finalization (80 to 100)
+      else if (currentProg >= 80 && currentProg <= 100) {
+        const t = (currentProg - 80) / 20;
+
+        // Clean Step 4 glow
+        if (simState.current.blockGlowMesh) {
+          scene.remove(simState.current.blockGlowMesh);
+          simState.current.blockGlowMesh = null;
+        }
+
+        // Validators pulse green to verify slices, then fade out
+        validators.forEach(v => {
+          v.status = "VERIFIED";
+          v.opacity = Math.max(0.0, 1.0 - (t - 0.5) / 0.5); // fade out on second half
+        });
+
+        // Phase 5A: Transition block to deep gold & slide to ledger tip (1.8, -1.5, -3.2)
+        if (simState.current.posBlock) {
+          if (simState.current.posBlock.material) {
+            simState.current.posBlock.material.color.setHex(0xd4a62e);
+            simState.current.posBlock.material.emissive.setHex(0xd4a62e);
+          }
+
+          const blockStartPos = new THREE.Vector3(-1.8, 0.5, 0);
+          const blockEndPos = new THREE.Vector3(1.8, -1.5, -3.2);
+          simState.current.posBlock.position.lerpVectors(blockStartPos, blockEndPos, Math.min(1.0, t / 0.8));
+
+          // At step end, commit block to blockchainGroup
+          if (t >= 0.95) {
+            simState.current.posBlock.position.copy(blockEndPos);
+            // Attach producer label to block
+            simState.current.posBlock.userData = { producerLabel: "SOL_LEADER" };
+            blockchainGroup.current.add(simState.current.posBlock);
+            simState.current.posBlock = null;
+          }
         }
       }
     }
@@ -3311,15 +4244,17 @@ export default function SimulationEngine() {
   const updateSimulationPhase = (prog) => {
     const stepCount = steps.length
     const stepSize = 100 / stepCount
-    let currentStepIdx = Math.floor(prog / stepSize)
-    if (currentStepIdx > stepCount - 1) currentStepIdx = stepCount - 1
+    
+    // Bind to the active workflow step to prevent boundary off-by-one mismatches
+    const currentStepIdx = activeWorkflowStep
+    const stepProgStart = currentStepIdx * stepSize
+    const stepProgress = Math.min(100, Math.max(0, Math.floor(((prog - stepProgStart) / stepSize) * 100)))
 
     const targetStep = steps[currentStepIdx]
-    const stepProgress = Math.floor(((prog % stepSize) / stepSize) * 100)
-
     let statusText = targetStep.title.toUpperCase()
+    
     if (stepProgress === 0) {
-      statusText = `READY: ${statusText}`
+      statusText = `ACTIVE: ${statusText}`
     } else if (stepProgress > 0 && stepProgress < 98) {
       statusText = `RUNNING: ${statusText} (${stepProgress}%)`
     } else {
@@ -3366,7 +4301,7 @@ export default function SimulationEngine() {
         const isVisible = tempV.z <= 1.0 && screenX >= 0 && screenX <= containerWidth && screenY >= 0 && screenY <= containerHeight;
         
         if (isVisible) {
-          const defaultLabel = selectedAlgo === "pos" ? "VAL_04" : "DEL_02";
+          const defaultLabel = selectedAlgo === "pos" ? "VAL_04" : selectedAlgo === "poh" ? "SOL_LEADER" : "DEL_02";
           let producer = child.userData.producerLabel || defaultLabel;
           labels.push(
             <div
@@ -3387,7 +4322,7 @@ export default function SimulationEngine() {
     });
     
     // 2. Active animating block in Step 3/4
-    const activeBlock = selectedAlgo === "pos" ? simState.current.posBlock : simState.current.dposBlock;
+    const activeBlock = selectedAlgo === "pos" || selectedAlgo === "poh" ? simState.current.posBlock : simState.current.dposBlock;
     if (activeBlock) {
       const tempV = new THREE.Vector3().copy(activeBlock.position);
       tempV.project(threeCamera.current);
@@ -3396,7 +4331,7 @@ export default function SimulationEngine() {
       const isVisible = tempV.z <= 1.0 && screenX >= 0 && screenX <= containerWidth && screenY >= 0 && screenY <= containerHeight;
       
       if (isVisible) {
-        const proposerLabel = selectedAlgo === "pos" ? "VAL_04" : "DEL_02";
+        const proposerLabel = selectedAlgo === "pos" ? "VAL_04" : selectedAlgo === "poh" ? "SOL_LEADER" : "DEL_02";
         labels.push(
           <div
             key="block-label-animating"
@@ -3456,14 +4391,20 @@ export default function SimulationEngine() {
               {node.label}
             </div>
             {node.type !== "mempool" && node.type !== "pool" && !node.id.startsWith("voter") && (
-              <div className="text-[7.5px] font-mono text-indigo-400 font-extrabold tracking-wider bg-slate-950/50 px-1 rounded uppercase">
-                {node.status || node.preference || "STANDBY"}
+              <div className={`text-[7.5px] font-mono font-extrabold tracking-wider bg-slate-950/50 px-1 rounded uppercase ${
+                node.status === "REVOKED" || node.status === "REVOKED_GREY"
+                  ? "text-rose-500 animate-pulse"
+                  : node.status === "UNVERIFIED"
+                  ? "text-slate-500"
+                  : "text-indigo-400"
+              }`}>
+                {node.status || "STANDBY"}
               </div>
             )}
           </div>
         ))}
         {/* Render block labels for DPoS or PoS blocks in blockchainGroup */}
-        {(selectedAlgo === "dpos" || selectedAlgo === "pos") && renderBlockLabels()}
+        {(selectedAlgo === "dpos" || selectedAlgo === "pos" || selectedAlgo === "poh") && renderBlockLabels()}
       </div>
 
       {/* Floating Protocol Inspector Overlay HUD */}

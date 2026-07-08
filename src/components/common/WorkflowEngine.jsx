@@ -3,16 +3,26 @@ import { useExplorer } from "../../context/ExplorerContext"
 import { consensusData } from "../../constants/consensusData"
 import { 
   Key, Radio, Database, Layers, Cpu, Award, CheckCircle2, Coins, Zap, 
-  ArrowLeft, ArrowRight, Play, Pause, RotateCcw, ChevronRight
+  ArrowLeft, ArrowRight, Play, Pause, RotateCcw, ChevronRight,
+  Clock, GitFork, ShieldCheck
 } from "lucide-react"
 
 const getStepIcon = (title) => {
   const t = title.toLowerCase()
+  
+  // Specific overrides for PoH steps to ensure distinct icons
+  if (t.includes("ticking") || t.includes("clock") || t.includes("hour")) return Clock
+  if (t.includes("anchoring")) return Key
+  if (t.includes("packaging")) return Layers
+  if (t.includes("parallel verification") || t.includes("parallel")) return GitFork
+  if (t.includes("finalization") || t.includes("finalize")) return ShieldCheck
+
+  // Standard generic mappings
   if (t.includes("transaction") || t.includes("create") || t.includes("request")) return Key
   if (t.includes("broadcast") || t.includes("gossip") || t.includes("propagate") || t.includes("relay")) return Radio
   if (t.includes("mempool") || t.includes("collect") || t.includes("queue")) return Database
   if (t.includes("candidate") || t.includes("block") || t.includes("assemble") || t.includes("propose")) return Layers
-  if (t.includes("mining") || t.includes("hash") || t.includes("solve") || t.includes("timer") || t.includes("clock") || t.includes("sleep")) return Cpu
+  if (t.includes("mining") || t.includes("hash") || t.includes("solve") || t.includes("timer") || t.includes("sleep")) return Cpu
   if (t.includes("winner") || t.includes("solved") || t.includes("leader") || t.includes("selection") || t.includes("woke") || t.includes("found")) return Award
   if (t.includes("verify") || t.includes("audit") || t.includes("vote") || t.includes("attest") || t.includes("confirm") || t.includes("check")) return CheckCircle2
   if (t.includes("reward") || t.includes("payout") || t.includes("incentive") || t.includes("distributed")) return Coins
@@ -87,77 +97,92 @@ export default function WorkflowEngine() {
     <div className="flex flex-col gap-6 w-full" role="region" aria-label="Process Flowchart timeline">
       
       {/* 1. Horizontal Flowchart Diagram */}
-      <div 
-        ref={scrollContainerRef}
-        className="flex items-center gap-0 overflow-x-auto pb-4 pt-2 px-2 scrollbar-thin scroll-smooth select-none w-full border-b border-brand-border/20"
-      >
-        {steps.map((step, idx) => {
-          const isCompleted = idx < activeIdx
-          const isActive = idx === activeIdx
-          const isUpcoming = idx > activeIdx
-          
-          const IconComponent = getStepIcon(step.title)
-          const numChar = unicodeNumbers[idx] || `${idx + 1}`
+      <div className="relative w-full">
+        {/* Left fade indicator */}
+        <div className="absolute left-0 top-0 bottom-4 w-10 bg-gradient-to-r from-slate-950/90 to-transparent pointer-events-none z-20" />
+        {/* Right fade indicator */}
+        <div className="absolute right-0 top-0 bottom-4 w-10 bg-gradient-to-l from-slate-950/90 to-transparent pointer-events-none z-20" />
 
-          let nodeClass = ""
-          let iconClass = ""
+        <div 
+          ref={scrollContainerRef}
+          className="flex items-center gap-0 overflow-x-auto pb-4 pt-2 px-8 scroll-smooth select-none w-full border-b border-brand-border/20 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+        >
+          {steps.map((step, idx) => {
+            const isCompleted = idx < activeIdx
+            const isActive = idx === activeIdx
+            const isUpcoming = idx > activeIdx
+            
+            const IconComponent = getStepIcon(step.title)
+            const numChar = unicodeNumbers[idx] || `${idx + 1}`
 
-          if (isActive) {
-            nodeClass = "border-amber-500 bg-amber-950/20 text-white shadow-[0_0_20px_rgba(245,158,11,0.3)] scale-105 animate-pulse-gentle z-10"
-            iconClass = "text-amber-500"
-          } else if (isCompleted) {
-            nodeClass = "border-emerald-500 bg-emerald-950/10 text-emerald-400 opacity-90"
-            iconClass = "text-emerald-450"
-          } else {
-            nodeClass = "border-brand-border/40 bg-slate-900/15 text-slate-500 opacity-50"
-            iconClass = "text-slate-600"
-          }
+            let nodeClass = ""
+            let iconClass = ""
 
-          return (
-            <React.Fragment key={idx}>
-              {/* Process Step Node */}
-              <button
-                onClick={() => handleStepSelect(idx)}
-                className={`flex-shrink-0 w-60 p-4 rounded-xl border-2 text-left cursor-pointer transition-all duration-300 flex flex-col gap-1.5 focus:outline-none ${nodeClass}`}
-              >
-                <div className="flex justify-between items-center w-full">
-                  <span className="text-xs font-mono font-bold tracking-wider text-slate-400">
-                    STEP {numChar}
-                  </span>
-                  <IconComponent className={`w-5 h-5 ${iconClass}`} />
-                </div>
-                <span className="text-[14px] font-bold uppercase tracking-tight truncate w-full">
-                  {step.title}
-                </span>
-                <p className="text-[10px] font-light leading-relaxed text-slate-400 line-clamp-1">
-                  {step.description}
-                </p>
-              </button>
+            if (isActive) {
+              nodeClass = "border-amber-500 bg-amber-950/20 text-white shadow-[0_0_20px_rgba(245,158,11,0.3)] scale-105 animate-pulse-gentle z-10"
+              iconClass = "text-amber-500"
+            } else if (isCompleted) {
+              nodeClass = "border-emerald-500 bg-emerald-950/10 text-emerald-400 opacity-90"
+              iconClass = "text-emerald-450"
+            } else {
+              nodeClass = "border-brand-border/40 bg-slate-900/15 text-slate-500 opacity-50"
+              iconClass = "text-slate-600"
+            }
 
-              {/* Connecting Execution Arrow Divider */}
-              {idx < steps.length - 1 && (
-                <div className="flex-shrink-0 flex items-center justify-center px-3" aria-hidden="true">
-                  <div className={`h-1.5 w-10 relative rounded-full transition-all duration-500 ${
-                    idx < activeIdx 
-                      ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.6)]" 
-                      : idx === activeIdx && isPlaying
-                      ? "bg-amber-500 animate-pulse shadow-[0_0_10px_rgba(245,158,11,0.6)]"
-                      : "bg-slate-800"
-                  }`}>
-                    {/* Arrow head pointer */}
-                    <div className={`absolute -right-2 -top-1.5 border-t-6 border-b-6 border-l-8 border-transparent transition-all duration-500 ${
-                      idx < activeIdx 
-                        ? "border-l-emerald-500" 
-                        : idx === activeIdx && isPlaying
-                        ? "border-l-amber-500" 
-                        : "border-l-slate-800"
-                    }`} />
+            return (
+              <React.Fragment key={idx}>
+                {/* Process Step Node */}
+                <button
+                  onClick={() => handleStepSelect(idx)}
+                  className={`flex-shrink-0 w-60 p-4 rounded-xl border-2 text-left cursor-pointer transition-all duration-300 flex flex-col gap-1.5 focus:outline-none ${nodeClass}`}
+                >
+                  <div className="flex justify-between items-center w-full">
+                    <span className="text-xs font-mono font-bold tracking-wider text-slate-400">
+                      STEP {numChar}
+                    </span>
+                    <IconComponent className={`w-5 h-5 ${iconClass}`} />
                   </div>
-                </div>
-              )}
-            </React.Fragment>
-          )
-        })}
+                  <span className="text-[14px] font-bold uppercase tracking-tight truncate w-full">
+                    {step.title}
+                  </span>
+                  <p className="text-[10px] font-light leading-relaxed text-slate-400 line-clamp-1">
+                    {step.description}
+                  </p>
+                </button>
+
+                {/* Connecting Execution Arrow Divider */}
+                {idx < steps.length - 1 && (
+                  <div className="flex-shrink-0 flex items-center justify-center px-3" aria-hidden="true">
+                    <div className={`h-1.5 w-10 relative rounded-full transition-all duration-500 ${
+                      idx < activeIdx 
+                        ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.6)]" 
+                        : idx === activeIdx && isPlaying
+                        ? "bg-amber-500 animate-pulse shadow-[0_0_10px_rgba(245,158,11,0.6)]"
+                        : "bg-slate-800"
+                    }`}>
+                      {/* Arrow head pointer */}
+                      <div className={`absolute -right-2 -top-1.5 border-t-6 border-b-6 border-l-8 border-transparent transition-all duration-500 ${
+                        idx < activeIdx 
+                          ? "border-l-emerald-500" 
+                          : idx === activeIdx && isPlaying
+                          ? "border-l-amber-500" 
+                          : "border-l-slate-800"
+                      }`} />
+                    </div>
+                  </div>
+                )}
+              </React.Fragment>
+            )
+          })}
+        </div>
+
+        {/* Real Step Progress Bar at the bottom of the container */}
+        <div className="w-full h-1 bg-slate-950/60 rounded-full overflow-hidden border border-brand-border/10 mt-3">
+          <div 
+            className="h-full rounded-full dynamic-accent-bg transition-all duration-300"
+            style={{ width: `${((activeIdx + 1) / steps.length) * 100}%` }}
+          />
+        </div>
       </div>
 
       {/* 2. Step Controller Toolbar (Directly beneath the workflow flowchart) */}

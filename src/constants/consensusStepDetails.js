@@ -140,6 +140,11 @@ export const consensusStepDetails = {
       why: "Legal finality guarantees that transactions committed by authorities cannot be altered.",
       process: "Once an authority signs the block, peers commit it to local storage. Double-signing leads to legal action.",
       whatIf: "Corporations would have no legal recourse if validators attempted double-spends."
+    },
+    {
+      why: "Malicious or compromised validators must be quickly stripped of their block production rights to prevent network damage.",
+      process: "Consortium members submit cryptographic proofs of double-signing, triggering a smart contract vote to revoke the node's authorized key.",
+      whatIf: "A compromised authority could continue producing empty or invalid blocks indefinitely, halting or censoring the consortium ledger."
     }
   ],
   pbft: [
