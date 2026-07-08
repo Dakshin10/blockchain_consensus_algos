@@ -26,6 +26,57 @@ const dispose3DObject = (obj, scene) => {
   }
 }
 
+// Helper to construct a rounded box using ExtrudeGeometry
+const createRoundedBoxGeometry = (w, h, d, r, steps) => {
+  const shape = new THREE.Shape()
+  shape.moveTo(-w/2 + r, -h/2)
+  shape.lineTo(w/2 - r, -h/2)
+  shape.quadraticCurveTo(w/2, -h/2, w/2, -h/2 + r)
+  shape.lineTo(w/2, h/2 - r)
+  shape.quadraticCurveTo(w/2, h/2, w/2 - r, h/2)
+  shape.lineTo(-w/2 + r, h/2)
+  shape.quadraticCurveTo(-w/2, h/2, -w/2, h/2 - r)
+  shape.lineTo(-w/2, -h/2 + r)
+  shape.quadraticCurveTo(-w/2, -h/2, -w/2 + r, -h/2)
+  
+  const extrudeSettings = {
+    steps: 1,
+    depth: d - r * 2,
+    bevelEnabled: true,
+    bevelThickness: r,
+    bevelSize: r,
+    bevelSegments: steps,
+    curveSegments: steps
+  }
+  
+  const geom = new THREE.ExtrudeGeometry(shape, extrudeSettings)
+  geom.center()
+  return geom
+}
+
+// Helper to construct a cylinder mesh acting as a thick line between two 3D vectors
+const createThickLine = (p1, p2, thickness, color, opacity) => {
+  const distance = p1.distanceTo(p2)
+  const geometry = new THREE.CylinderGeometry(thickness, thickness, distance, 6)
+  const material = new THREE.MeshBasicMaterial({
+    color: color,
+    transparent: true,
+    opacity: opacity,
+    depthWrite: false
+  })
+  const mesh = new THREE.Mesh(geometry, material)
+  
+  const midpoint = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5)
+  mesh.position.copy(midpoint)
+  
+  const direction = new THREE.Vector3().subVectors(p2, p1).normalize()
+  const alignAxis = new THREE.Vector3(0, 1, 0)
+  mesh.quaternion.setFromUnitVectors(alignAxis, direction)
+  
+  return mesh
+}
+
+
 export default function SimulationEngine() {
   const { state, dispatch } = useExplorer()
   const { selectedAlgo, activeAttack, activeWorkflowStep, reducedMotion, isPlaying, speed, isAutoPlay, showCompletion } = state
@@ -88,6 +139,9 @@ export default function SimulationEngine() {
   const animatingBlock = useRef(null) // Sliding block data
   const cameraLookAt = useRef(new THREE.Vector3(0, 0, 0))
   const activeTxPacket = useRef(null) // Transaction packet group
+  const dposLines = useRef([]) // Custom tracking lines for DPoS voting & verification
+  const posLines = useRef([]) // Custom tracking lines for PoS staking & locks
+
 
   // Local React state copies of nodes to render projected HTML label elements
   const [simNodes, setSimNodes] = useState([])
@@ -118,7 +172,9 @@ export default function SimulationEngine() {
         })
       }
     } else if (selectedAlgo === "pos") {
+      // Stake Pool in center
       nodes.push({ id: "stake-pool", label: "POOL", type: "pool", x: 0, y: 0.5, z: 0, status: "ACTIVE" })
+      
       const stakes = [32, 64, 96, 128, 48, 80]
       const totalStaked = stakes.reduce((a, b) => a + b, 0)
       for (let i = 0; i < 6; i++) {
@@ -138,26 +194,43 @@ export default function SimulationEngine() {
           isSlashed: false,
           isWinner: false,
           role: "STANDBY",
+          scale: 0.45, // default small size before staking animation
+          opacity: 1.0
         })
       }
     } else if (selectedAlgo === "dpos") {
-      nodes.push({ id: "voter-1", label: "VOTERS", type: "voter", x: -4.5, y: 0.8, z: -1.5, status: "VOTING" })
-      nodes.push({ id: "voter-2", label: "VOTERS", type: "voter", x: -4.5, y: 0.8, z: 1.5, status: "VOTING" })
+      // 5 Voters clustered on the left third
+      nodes.push({ id: "voter-1", label: "VOTER_01", type: "voter", x: -4.2, y: 0.4, z: -1.2, status: "VOTING", stake: 1500 })
+      nodes.push({ id: "voter-2", label: "VOTER_02", type: "voter", x: -4.8, y: 0.8, z: -0.5, status: "VOTING", stake: 3500 })
+      nodes.push({ id: "voter-3", label: "VOTER_03", type: "voter", x: -4.0, y: 0.6, z: 0.6, status: "VOTING", stake: 4000 })
+      nodes.push({ id: "voter-4", label: "VOTER_04", type: "voter", x: -4.6, y: 0.3, z: 1.2, status: "VOTING", stake: 2000 })
+      nodes.push({ id: "voter-5", label: "VOTER_05", type: "voter", x: -3.8, y: 0.9, z: -0.1, status: "VOTING", stake: 3000 })
+      
+      // 5 Candidates in a shallow arc on the right two-thirds
+      const dposCoords = [
+        { x: 2.0, z: -2.5 },
+        { x: 3.2, z: -1.2 },
+        { x: 3.8, z: 0.0 },
+        { x: 3.2, z: 1.2 },
+        { x: 2.0, z: 2.5 }
+      ]
+      
       for (let i = 0; i < 5; i++) {
-        const angle = (i / 5) * Math.PI * 2
         nodes.push({
           id: `delegate-${i + 1}`,
           label: `DEL_0${i + 1}`,
           type: "delegate",
-          x: 3.5 * Math.cos(angle) + 1.0,
+          x: dposCoords[i].x,
           y: 0.2,
-          z: 3.5 * Math.sin(angle),
+          z: dposCoords[i].z,
           votes: 18000 + i * 3600,
           round: 1,
           status: "STANDBY",
           rewards: 0.4 * i,
           isWinner: false,
           role: "STANDBY",
+          scale: 1.0,
+          opacity: 1.0
         })
       }
     } else if (selectedAlgo === "poa") {
@@ -369,8 +442,49 @@ export default function SimulationEngine() {
         activeTxPacket.current = null
       }
 
+      if (dposLines.current) {
+        dposLines.current.forEach(line => {
+          threeScene.current.remove(line);
+          line.geometry.dispose();
+          line.material.dispose();
+        });
+        dposLines.current = [];
+      }
+
+      if (simState.current.schedulerRing) {
+        threeScene.current.remove(simState.current.schedulerRing);
+        simState.current.schedulerRing.geometry.dispose();
+        simState.current.schedulerRing.material.dispose();
+        simState.current.schedulerRing = null;
+      }
+
+      if (simState.current.schedulerMarker) {
+        threeScene.current.remove(simState.current.schedulerMarker);
+        simState.current.schedulerMarker.geometry.dispose();
+        simState.current.schedulerMarker.material.dispose();
+        simState.current.schedulerMarker = null;
+      }
+
+      if (simState.current.dposBlock) {
+        threeScene.current.remove(simState.current.dposBlock);
+        simState.current.dposBlock.geometry.dispose();
+        simState.current.dposBlock.material.dispose();
+        simState.current.dposBlock = null;
+      }
+
+      if (simState.current.blockGlowMesh) {
+        threeScene.current.remove(simState.current.blockGlowMesh);
+        simState.current.blockGlowMesh.geometry.dispose();
+        simState.current.blockGlowMesh.material.dispose();
+        simState.current.blockGlowMesh = null;
+      }
+
       simState.current.goldPulseFired = false
       simState.current.blockPulseFired = false
+      simState.current.dposPulseFired = false
+      simState.current.verifierPulsesFired = false
+      simState.current.blockGlowCreated = false
+      simState.current.lastDposStep = -1
     }
   }
 
@@ -644,15 +758,27 @@ export default function SimulationEngine() {
         scene.add(shell)
 
       } else if (node.type === "pool") {
-        // Floating Torus Knot representing dynamic staking/consortium pool
-        meshGeo = new THREE.TorusKnotGeometry(0.48, 0.14, 64, 8)
-        meshMat = new THREE.MeshStandardMaterial({
-          color: 0x3b7dd8,
-          roughness: 0.2,
-          metalness: 0.9,
-          emissive: 0x3b7dd8,
-          emissiveIntensity: 0.2,
-        })
+        if (selectedAlgo === "pos") {
+          // Centered Gold Sphere representing the stake pool
+          meshGeo = new THREE.SphereGeometry(0.75, 32, 32)
+          meshMat = new THREE.MeshStandardMaterial({
+            color: 0xd4a62e, // deep gold
+            roughness: 0.3,
+            metalness: 0.8,
+            emissive: 0xd4a62e,
+            emissiveIntensity: 0.2,
+          })
+        } else {
+          // Floating Torus Knot representing dynamic staking/consortium pool
+          meshGeo = new THREE.TorusKnotGeometry(0.48, 0.14, 64, 8)
+          meshMat = new THREE.MeshStandardMaterial({
+            color: 0x3b7dd8,
+            roughness: 0.2,
+            metalness: 0.9,
+            emissive: 0x3b7dd8,
+            emissiveIntensity: 0.2,
+          })
+        }
         mesh = new THREE.Mesh(meshGeo, meshMat)
         mesh.position.copy(nodePos)
         scene.add(mesh)
@@ -738,12 +864,21 @@ export default function SimulationEngine() {
 
       } else {
         // Standard validator or generic participant node
+        let baseColor = 0x3b7dd8;
+        if (selectedAlgo === "dpos") {
+          if (node.type === "voter") {
+            baseColor = 0x4a90e2; // Voter sky blue
+          } else if (node.type === "delegate") {
+            baseColor = 0x6b4fa0; // Delegate muted purple
+          }
+        }
+
         meshGeo = new THREE.SphereGeometry(0.5, 32, 32)
         meshMat = new THREE.MeshStandardMaterial({
-          color: 0x3b7dd8, // Cool blue base
+          color: baseColor,
           roughness: 0.2,
           metalness: 0.8,
-          emissive: 0x3b7dd8,
+          emissive: baseColor,
           emissiveIntensity: 0.15,
         })
         mesh = new THREE.Mesh(meshGeo, meshMat)
@@ -753,7 +888,7 @@ export default function SimulationEngine() {
         // Spinning wireframe orbit shell
         shellGeo = new THREE.TorusGeometry(0.72, 0.05, 8, 32)
         shellMat = new THREE.MeshBasicMaterial({
-          color: 0x3b7dd8,
+          color: baseColor,
           wireframe: true,
           transparent: true,
           opacity: 0.35,
@@ -769,7 +904,34 @@ export default function SimulationEngine() {
       threeNodes.current[node.id] = { mesh, shell, type: node.type }
     })
 
-    // Setup ledger stacking chains (clean gold stacks)
+    // Setup PoS validator-to-pool lock lines initially
+    if (selectedAlgo === "pos" && scene) {
+      if (posLines.current) {
+        posLines.current.forEach(line => scene.remove(line));
+        posLines.current = [];
+      }
+      
+      const poolNode = newNodes.find(n => n.id === "stake-pool");
+      const validators = newNodes.filter(n => n.type === "validator");
+      
+      if (poolNode) {
+        const poolPos = new THREE.Vector3(poolNode.x, poolNode.y, poolNode.z);
+        validators.forEach(v => {
+          const valPos = new THREE.Vector3(v.x, v.y, v.z);
+          const lineGeo = new THREE.BufferGeometry().setFromPoints([valPos, poolPos]);
+          const lineMat = new THREE.LineBasicMaterial({
+            color: 0xd4a62e,
+            transparent: true,
+            opacity: 0.2
+          });
+          const line = new THREE.Line(lineGeo, lineMat);
+          scene.add(line);
+          posLines.current.push(line);
+        });
+      }
+    }
+
+    // Setup ledger stacking chains (clean gold stacks, or teal rounded stacks for DPoS)
     if (blockchainGroup.current) {
       while (blockchainGroup.current.children.length > 0) {
         const obj = blockchainGroup.current.children[0]
@@ -778,27 +940,39 @@ export default function SimulationEngine() {
         obj.material?.dispose()
       }
 
-      for (let i = 0; i < 3; i++) {
-        const blockGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5)
-        const blockMat = new THREE.MeshStandardMaterial({
-          color: 0xd4a62e, // Gold block
-          roughness: 0.3,
-          metalness: 0.8,
-          emissive: 0xd4a62e,
-          emissiveIntensity: 0.15,
-        })
-        const block = new THREE.Mesh(blockGeo, blockMat)
-        block.position.set(-1.8 + i * 1.2, -1.5, -3.2)
-        blockchainGroup.current.add(block)
+      // Do NOT show PoW blockchain stacks in idle/pre-selection state for PoS
+      if (selectedAlgo !== "pos") {
+        const isDpos = selectedAlgo === "dpos";
+        const blockGeo = isDpos ? createRoundedBoxGeometry(0.5, 0.5, 0.5, 0.08, 4) : new THREE.BoxGeometry(0.5, 0.5, 0.5);
 
-        if (i > 0) {
-          const lineGeo = new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(-1.8 + (i - 1) * 1.2 + 0.25, -1.5, -3.2),
-            new THREE.Vector3(-1.8 + i * 1.2 - 0.25, -1.5, -3.2)
-          ])
-          const lineMat = new THREE.LineBasicMaterial({ color: 0x475569 })
-          const line = new THREE.Line(lineGeo, lineMat)
-          blockchainGroup.current.add(line)
+        for (let i = 0; i < 3; i++) {
+          const blockColor = isDpos ? 0x0a9c86 : 0xd4a62e;
+          const blockMat = new THREE.MeshStandardMaterial({
+            color: blockColor,
+            roughness: 0.3,
+            metalness: 0.8,
+            emissive: blockColor,
+            emissiveIntensity: 0.15,
+          })
+          const block = new THREE.Mesh(blockGeo, blockMat)
+          block.position.set(-1.8 + i * 1.2, -1.5, -3.2)
+          
+          if (isDpos) {
+            // Set producer names for the 3 historical blocks
+            block.userData = { producerLabel: `DEL_0${(i % 3) + 1}` };
+          }
+          
+          blockchainGroup.current.add(block)
+
+          if (i > 0) {
+            const lineGeo = new THREE.BufferGeometry().setFromPoints([
+              new THREE.Vector3(-1.8 + (i - 1) * 1.2 + 0.25, -1.5, -3.2),
+              new THREE.Vector3(-1.8 + i * 1.2 - 0.25, -1.5, -3.2)
+            ])
+            const lineMat = new THREE.LineBasicMaterial({ color: isDpos ? 0x0a9c86 : 0x475569 })
+            const line = new THREE.Line(lineGeo, lineMat)
+            blockchainGroup.current.add(line)
+          }
         }
       }
     }
@@ -1143,31 +1317,224 @@ export default function SimulationEngine() {
             screen.material.emissiveIntensity = isActive ? 0.8 + 0.25 * Math.sin(frame * 0.1) : 0.45
           }
         } else if (obj.type !== "mempool") {
-          // Standard consensus node glow transitions
-          const isWinner = node.isWinner
-          if (isWinner) {
-            obj.mesh.material.color.setHex(0xffc94a)
-            obj.mesh.material.emissive.setHex(0xffc94a)
-            obj.mesh.material.emissiveIntensity = 0.8
-            if (obj.shell) obj.shell.material.color.setHex(0xffc94a)
-          } else if (node.status === "ACTIVE" || node.status === "VERIFYING" || node.status === "VOTING") {
-            obj.mesh.material.color.setHex(0x3b7dd8)
-            obj.mesh.material.emissive.setHex(0x5b9bff)
-            obj.mesh.material.emissiveIntensity = 0.3
-            if (obj.shell) obj.shell.material.color.setHex(0x5b9bff)
+          if (selectedAlgo === "dpos") {
+            // Apply scale
+            const s = node.scale !== undefined ? node.scale : 1.0;
+            obj.mesh.scale.set(s, s, s);
+            if (obj.shell) obj.shell.scale.set(s, s, s);
+            
+            // Apply opacity
+            const opacity = node.opacity !== undefined ? node.opacity : 1.0;
+            const setOpacity = (m, op) => {
+              if (m.material) {
+                m.material.transparent = op < 1.0;
+                m.material.opacity = op;
+              }
+            };
+            if (obj.mesh.isGroup) {
+              obj.mesh.traverse(child => setOpacity(child, opacity));
+            } else {
+              setOpacity(obj.mesh, opacity);
+            }
+            if (obj.shell) {
+              obj.shell.material.transparent = true;
+              obj.shell.material.opacity = opacity * 0.35;
+            }
+
+            // Apply position
+            obj.mesh.position.set(node.x, node.y, node.z);
+            if (obj.shell) {
+              obj.shell.position.set(node.x, node.y, node.z);
+            }
+
+            // DPoS dynamic color logic
+            let color = 0x6b4fa0; // Default delegate purple
+            let emissive = 0x6b4fa0;
+            let intensity = 0.15;
+            
+            if (node.type === "voter") {
+              if (node.status === "FLASH_VOTING" || node.status === "RECALL_VOTE") {
+                const isFlash = node.status === "RECALL_VOTE" ? (Math.sin(frame * 0.4) > 0) : true;
+                color = node.status === "RECALL_VOTE" ? (isFlash ? 0xe24a4a : 0x4a90e2) : 0x7db8ff; // warning flash red or vote blue
+                emissive = color;
+                intensity = 0.8;
+              } else {
+                color = 0x4a90e2; // Idle voter blue
+                emissive = 0x4a90e2;
+                intensity = 0.2;
+              }
+            } else if (node.type === "delegate") {
+              if (node.status === "SLASHED") {
+                const isFlash = Math.sin(frame * 0.4) > 0;
+                color = isFlash ? 0xe24a4a : 0x4a4a55; // Red warning flash
+                emissive = color;
+                intensity = isFlash ? 0.95 : 0.1;
+              } else if (node.status === "RECALLED_GREY") {
+                color = 0x4a4a55; // Fade to grey
+                emissive = 0x4a4a55;
+                intensity = 0.05;
+              } else if (node.status === "PRODUCING" || node.status === "ACTIVE_SLOT") {
+                color = 0x00d4b8; // Solid teal-green, no pulse
+                emissive = 0x00d4b8;
+                intensity = 0.6;
+              } else if (node.status === "ELECTED") {
+                color = 0x00d4b8; // Teal-green
+                emissive = 0x00d4b8;
+                intensity = 0.4;
+              } else if (node.status === "VERIFIED") {
+                color = 0x00d4b8; // Verified teal-green
+                emissive = 0x00d4b8;
+                intensity = 0.45;
+              } else if (node.status === "CANDIDATE_PULSING") {
+                // Pulse synced to vote-tally updates
+                const pulse = 0.5 + 0.5 * Math.sin(frame * 0.15 * speed);
+                const c1 = new THREE.Color(0x6b4fa0);
+                const c2 = new THREE.Color(0x9b6fe0);
+                const interpColor = c1.clone().lerp(c2, pulse);
+                color = interpColor.getHex();
+                emissive = color;
+                intensity = 0.35 + 0.3 * pulse;
+              } else {
+                // Standby
+                color = 0x6b4fa0;
+                emissive = 0x6b4fa0;
+                intensity = 0.15;
+              }
+            }
+            
+            obj.mesh.material.color.setHex(color);
+            obj.mesh.material.emissive.setHex(emissive);
+            obj.mesh.material.emissiveIntensity = intensity;
+            if (obj.shell) {
+              obj.shell.material.color.setHex(emissive);
+            }
+          } else if (selectedAlgo === "pos") {
+            // Apply position
+            obj.mesh.position.set(node.x, node.y, node.z);
+            if (obj.shell) {
+              obj.shell.position.set(node.x, node.y, node.z);
+            }
+            
+            // Apply scale
+            const s = node.scale !== undefined ? node.scale : 1.0;
+            obj.mesh.scale.set(s, s, s);
+            if (obj.shell) obj.shell.scale.set(s, s, s);
+
+            // Apply opacity
+            const opacity = node.opacity !== undefined ? node.opacity : 1.0;
+            const setOpacity = (m, op) => {
+              if (m.material) {
+                m.material.transparent = op < 1.0;
+                m.material.opacity = op;
+              }
+            };
+            if (obj.mesh.isGroup) {
+              obj.mesh.traverse(child => setOpacity(child, opacity));
+            } else {
+              setOpacity(obj.mesh, opacity);
+            }
+            if (obj.shell) {
+              obj.shell.material.transparent = true;
+              obj.shell.material.opacity = opacity * 0.35;
+            }
+
+            // Custom coloring for PoS nodes
+            let color = 0x2a5a9c; // Dim steel-blue base
+            let emissive = 0x2a5a9c;
+            let intensity = 0.1;
+
+            if (node.type === "pool") {
+              // Pool color (gold `#D4A62E`)
+              color = 0xd4a62e;
+              emissive = 0xd4a62e;
+              intensity = 0.2;
+              if (node.status === "FLASH_DEPOSIT") {
+                // Brighten gold
+                color = 0xf0c860;
+                emissive = 0xf0c860;
+                intensity = 0.8;
+              }
+            } else if (node.type === "validator") {
+              if (node.status === "SLASHED") {
+                // Flash warning red
+                const isFlash = Math.sin(frame * 0.4) > 0;
+                color = isFlash ? 0xe24a4a : 0x3a3f4a;
+                emissive = color;
+                intensity = isFlash ? 0.95 : 0.1;
+              } else if (node.status === "SLASHED_GREY") {
+                color = 0x3a3f4a; // dead grey
+                emissive = 0x3a3f4a;
+                intensity = 0.05;
+              } else if (node.status === "SELECTED" || node.status === "PROPOSER") {
+                color = 0x00d4b8; // solid teal-green
+                emissive = 0x00d4b8;
+                intensity = 0.7;
+              } else if (node.status === "ATTESTING") {
+                // Pulse attestation-blue
+                color = 0x4a90e2;
+                emissive = 0x4a90e2;
+                intensity = 0.6;
+              } else if (node.status === "STAKED") {
+                color = 0x3b7dd8; // medium blue
+                emissive = 0x3b7dd8;
+                intensity = 0.2;
+              } else if (node.status === "ELIGIBLE") {
+                // Brighten selection-eligible blue
+                color = 0x5b9bff;
+                emissive = 0x5b9bff;
+                intensity = 0.45;
+              } else {
+                // Idle / low stake before animation
+                color = 0x2a5a9c; // dim steel-blue
+                emissive = 0x2a5a9c;
+                intensity = 0.1;
+              }
+            }
+
+            // Apply color to mesh
+            if (obj.mesh.material) {
+              obj.mesh.material.color.setHex(color);
+              obj.mesh.material.emissive.setHex(emissive);
+              obj.mesh.material.emissiveIntensity = intensity;
+            } else {
+              obj.mesh.traverse(child => {
+                if (child.material) {
+                  child.material.color.setHex(color);
+                  child.material.emissive.setHex(emissive);
+                  child.material.emissiveIntensity = intensity;
+                }
+              });
+            }
+            if (obj.shell) {
+              obj.shell.material.color.setHex(emissive);
+            }
           } else {
-            const hasWinnerInScene = simState.current.nodes.some(n => n.isWinner)
-            const dimColor = hasWinnerInScene ? 0x2a4a78 : 0x3b7dd8
-            obj.mesh.material.color.setHex(dimColor)
-            obj.mesh.material.emissive.setHex(dimColor)
-            obj.mesh.material.emissiveIntensity = 0.1
-            if (obj.shell) obj.shell.material.color.setHex(dimColor)
+            // Standard consensus node glow transitions
+            const isWinner = node.isWinner
+            if (isWinner) {
+              obj.mesh.material.color.setHex(0xffc94a)
+              obj.mesh.material.emissive.setHex(0xffc94a)
+              obj.mesh.material.emissiveIntensity = 0.8
+              if (obj.shell) obj.shell.material.color.setHex(0xffc94a)
+            } else if (node.status === "ACTIVE" || node.status === "VERIFYING" || node.status === "VOTING") {
+              obj.mesh.material.color.setHex(0x3b7dd8)
+              obj.mesh.material.emissive.setHex(0x5b9bff)
+              obj.mesh.material.emissiveIntensity = 0.3
+              if (obj.shell) obj.shell.material.color.setHex(0x5b9bff)
+            } else {
+              const hasWinnerInScene = simState.current.nodes.some(n => n.isWinner)
+              const dimColor = hasWinnerInScene ? 0x2a4a78 : 0x3b7dd8
+              obj.mesh.material.color.setHex(dimColor)
+              obj.mesh.material.emissive.setHex(dimColor)
+              obj.mesh.material.emissiveIntensity = hasWinnerInScene ? 0.05 : 0.15
+              if (obj.shell) obj.shell.material.color.setHex(dimColor)
+            }
           }
         }
       })
 
       // Expanding finalized wave ripple
-      if (showCompletion) {
+      if (showCompletion && selectedAlgo !== "dpos") {
         if (!rippleMesh.current) {
           const ripGeo = new THREE.SphereGeometry(1, 32, 16)
           const ripMat = new THREE.MeshBasicMaterial({
@@ -1196,7 +1563,7 @@ export default function SimulationEngine() {
       }
 
       // Slider block committing animation to bottom ledger chain
-      if (showCompletion && !animatingBlock.current) {
+      if (showCompletion && selectedAlgo !== "dpos" && !animatingBlock.current) {
         const blockGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5)
         const blockMat = new THREE.MeshStandardMaterial({
           color: 0x10b981,
@@ -1216,7 +1583,7 @@ export default function SimulationEngine() {
         }
       }
 
-      if (animatingBlock.current) {
+      if (animatingBlock.current && selectedAlgo !== "dpos") {
         const ab = animatingBlock.current
         ab.prog += 0.02 * speed
         ab.mesh.position.lerpVectors(ab.start, ab.end, ab.prog)
@@ -1358,6 +1725,33 @@ export default function SimulationEngine() {
       if (animatingBlock.current) {
         dispose3DObject(animatingBlock.current.mesh, scene)
         animatingBlock.current = null
+      }
+
+      if (dposLines.current) {
+        dposLines.current.forEach(line => {
+          dispose3DObject(line, scene)
+        })
+        dposLines.current = []
+      }
+
+      if (simState.current.schedulerRing) {
+        dispose3DObject(simState.current.schedulerRing, scene)
+        simState.current.schedulerRing = null
+      }
+
+      if (simState.current.schedulerMarker) {
+        dispose3DObject(simState.current.schedulerMarker, scene)
+        simState.current.schedulerMarker = null
+      }
+
+      if (simState.current.dposBlock) {
+        dispose3DObject(simState.current.dposBlock, scene)
+        simState.current.dposBlock = null
+      }
+
+      if (simState.current.blockGlowMesh) {
+        dispose3DObject(simState.current.blockGlowMesh, scene)
+        simState.current.blockGlowMesh = null
       }
 
       renderer.dispose()
@@ -1787,24 +2181,511 @@ export default function SimulationEngine() {
     else if (selectedAlgo === "dpos") {
       const delegates = nodes.filter(n => n.type === "delegate")
       const voters = nodes.filter(n => n.type === "voter")
-      const scheduler = nodes.find(n => n.id === "scheduler")
 
-      if (currentProg < 20) {
-        delegates.forEach((d, idx) => { d.isWinner = idx === 1; d.status = "STANDBY" })
-        if (frame % 22 === 0 && isPlaying) {
-          voters.forEach(v => {
-            delegates.forEach(d => {
-              spawn3DParticle(new THREE.Vector3(v.x, v.y, v.z), new THREE.Vector3(d.x, d.y, d.z), colorHex, "vote")
-            })
-          })
-        }
-      } else if (currentProg >= 40 && currentProg < 60) {
-        const leader = delegates.find(d => d.isWinner)
-        if (leader) {
-          leader.status = "PRODUCING"
-          if (frame % 25 === 0 && isPlaying) {
-            spawn3DParticle(new THREE.Vector3(leader.x, leader.y, leader.z), new THREE.Vector3(0, 0.5, 0), colorHex, "dpos-block")
+      // Clear any effects if the step changes
+      const currentStepIdx = Math.floor(currentProg / 20);
+      if (simState.current.lastDposStep !== currentStepIdx) {
+        simState.current.lastDposStep = currentStepIdx;
+        
+        // Reset node configurations
+        delegates.forEach(d => {
+          d.scale = 1.0;
+          d.opacity = 1.0;
+          d.status = "STANDBY";
+        });
+        voters.forEach((v, idx) => {
+          v.scale = 1.0;
+          v.opacity = 1.0;
+          v.status = "VOTING";
+          if (idx === 4) {
+            v.x = -3.8;
+            v.y = 0.9;
+            v.z = -0.1;
+            v.label = "VOTER_05";
           }
+        });
+        
+        // Return DEL_02 to its arc position if it was in the active slot
+        delegates[1].x = 3.2;
+        delegates[1].y = 0.2;
+        delegates[1].z = -1.2;
+
+        // Clean up visual refs
+        if (dposLines.current) {
+          dposLines.current.forEach(line => scene.remove(line));
+          dposLines.current = [];
+        }
+        if (simState.current.schedulerRing) {
+          scene.remove(simState.current.schedulerRing);
+          simState.current.schedulerRing = null;
+        }
+        if (simState.current.schedulerMarker) {
+          scene.remove(simState.current.schedulerMarker);
+          simState.current.schedulerMarker = null;
+        }
+        if (simState.current.dposBlock) {
+          scene.remove(simState.current.dposBlock);
+          simState.current.dposBlock = null;
+        }
+        if (simState.current.blockGlowMesh) {
+          scene.remove(simState.current.blockGlowMesh);
+          simState.current.blockGlowMesh = null;
+        }
+        simState.current.dposPulseFired = false;
+        simState.current.verifierPulsesFired = false;
+        simState.current.blockGlowCreated = false;
+      }
+
+      // Step 1: Delegate Election (0 to 20)
+      if (currentProg < 20) {
+        const t = currentProg / 20;
+        
+        // Phase 1A: 0% to 50% step progress (0 to 10 prog)
+        if (t < 0.5) {
+          const t_line = t / 0.5;
+          
+          voters.forEach(v => { v.status = "FLASH_VOTING"; });
+          delegates.forEach(d => { d.status = "CANDIDATE_PULSING"; });
+          
+          // Target delegates: Voter1 -> Del1, Voter2 -> Del2, Voter3 -> Del2, Voter4 -> Del3, Voter5 -> Del4
+          const targets = [delegates[0], delegates[1], delegates[1], delegates[2], delegates[3]];
+          
+          if (dposLines.current.length === 0 && scene) {
+            voters.forEach((v, idx) => {
+              const startPos = new THREE.Vector3(v.x, v.y, v.z);
+              const targetPos = new THREE.Vector3(targets[idx].x, targets[idx].y, targets[idx].z);
+              const thickness = v.stake / 50000;
+              const line = createThickLine(startPos, targetPos, thickness, 0x4a90e2, 1.0);
+              scene.add(line);
+              dposLines.current.push(line);
+            });
+          }
+          
+          if (dposLines.current.length > 0) {
+            dposLines.current.forEach((line, idx) => {
+              const v = voters[idx];
+              const target = targets[idx];
+              const startPos = new THREE.Vector3(v.x, v.y, v.z);
+              const targetPos = new THREE.Vector3(target.x, target.y, target.z);
+              const currentEnd = new THREE.Vector3().lerpVectors(startPos, targetPos, t_line);
+              
+              line.position.copy(new THREE.Vector3().addVectors(startPos, currentEnd).multiplyScalar(0.5));
+              const dist = startPos.distanceTo(currentEnd);
+              line.scale.set(1, Math.max(0.001, dist / startPos.distanceTo(targetPos)), 1);
+            });
+          }
+          
+          if (frame % 15 === 0 && isPlaying) {
+            voters.forEach((v, idx) => {
+              const startPos = new THREE.Vector3(v.x, v.y, v.z);
+              const targetPos = new THREE.Vector3(targets[idx].x, targets[idx].y, targets[idx].z);
+              spawn3DParticle(startPos, targetPos, 0x7db8ff, "vote-cast");
+            });
+          }
+        }
+        // Phase 1B: 50% to 90% step progress (10 to 18 prog)
+        else if (t >= 0.5 && t < 0.9) {
+          voters.forEach(v => { v.status = "VOTING"; });
+          delegates.forEach(d => { d.status = "CANDIDATE_PULSING"; });
+          
+          if (dposLines.current.length > 0) {
+            dposLines.current.forEach(line => {
+              line.scale.set(1, 1, 1);
+              if (line.material) {
+                line.material.opacity = 0.5;
+              }
+            });
+          }
+        }
+        // Phase 1C: 90% to 100% step progress (18 to 20 prog)
+        else {
+          voters.forEach(v => { v.status = "VOTING"; });
+          delegates.forEach((d, idx) => {
+            if (idx < 4) {
+              d.status = "ELECTED";
+            } else {
+              d.status = "STANDBY";
+            }
+          });
+          
+          if (!simState.current.dposPulseFired && scene) {
+            simState.current.dposPulseFired = true;
+            for (let i = 0; i < 4; i++) {
+              const d = delegates[i];
+              const ringGeo = new THREE.RingGeometry(0.5, 1.2, 32);
+              const ringMat = new THREE.MeshBasicMaterial({
+                color: 0x00d4b8,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.8
+              });
+              const ring = new THREE.Mesh(ringGeo, ringMat);
+              ring.position.set(d.x, d.y, d.z);
+              ring.rotation.x = Math.PI / 2;
+              scene.add(ring);
+              
+              threeParticles.current.push({
+                mesh: ring,
+                type: "sig-pulse",
+                life: 1.0,
+                decay: 0.05 * speed
+              });
+            }
+          }
+        }
+      }
+      
+      // Step 2: Slot Scheduling (20 to 40)
+      else if (currentProg >= 20 && currentProg < 40) {
+        const t = (currentProg - 20) / 20;
+        
+        if (dposLines.current.length > 0) {
+          dposLines.current.forEach(line => scene.remove(line));
+          dposLines.current = [];
+        }
+        
+        // Phase 2A: 0% to 70% step progress (20 to 34 prog)
+        if (t < 0.7) {
+          const t_ticket = t / 0.7;
+          
+          delegates.forEach((d, idx) => {
+            if (idx < 4) d.status = "ELECTED";
+          });
+          
+          if (!simState.current.schedulerRing && scene) {
+            const ringGeom = new THREE.RingGeometry(3.45, 3.55, 64);
+            const ringMat = new THREE.MeshBasicMaterial({
+              color: 0x00d4b8,
+              side: THREE.DoubleSide,
+              transparent: true,
+              opacity: 0.15,
+              depthWrite: false
+            });
+            const ringMesh = new THREE.Mesh(ringGeom, ringMat);
+            ringMesh.rotation.x = Math.PI / 2;
+            ringMesh.position.set(1.0, 0.2, 0.0);
+            scene.add(ringMesh);
+            simState.current.schedulerRing = ringMesh;
+          }
+          
+          if (!simState.current.schedulerMarker && scene) {
+            const markerGeom = new THREE.SphereGeometry(0.18, 16, 16);
+            const markerMat = new THREE.MeshBasicMaterial({
+              color: 0x00d4b8,
+              transparent: true,
+              opacity: 0.95
+            });
+            const markerMesh = new THREE.Mesh(markerGeom, markerMat);
+            scene.add(markerMesh);
+            simState.current.schedulerMarker = markerMesh;
+          }
+          
+          if (simState.current.schedulerMarker) {
+            const activeDelegates = [delegates[0], delegates[1], delegates[2], delegates[3]];
+            const idxFraction = t_ticket * (activeDelegates.length - 1);
+            const idx1 = Math.floor(idxFraction);
+            const idx2 = Math.min(activeDelegates.length - 1, idx1 + 1);
+            const factor = idxFraction - idx1;
+            
+            const p1 = new THREE.Vector3(activeDelegates[idx1].x, 0.35, activeDelegates[idx1].z);
+            const p2 = new THREE.Vector3(activeDelegates[idx2].x, 0.35, activeDelegates[idx2].z);
+            simState.current.schedulerMarker.position.lerpVectors(p1, p2, factor);
+            
+            activeDelegates.forEach((d, idx) => {
+              if (idxFraction >= idx - 0.2 && idxFraction <= idx + 0.2) {
+                d.status = `SLOT #${idx + 1}`;
+              } else {
+                d.status = "ELECTED";
+              }
+            });
+          }
+        }
+        // Phase 2B: 70% to 100% step progress (34 to 40 prog)
+        else {
+          const t_move = (t - 0.7) / 0.3;
+          const ease_t = t_move * t_move * (3 - 2 * t_move);
+          
+          if (simState.current.schedulerMarker) {
+            scene.remove(simState.current.schedulerMarker);
+            simState.current.schedulerMarker = null;
+          }
+          
+          const startPos = new THREE.Vector3(3.2, 0.2, -1.2);
+          const activeSlotPos = new THREE.Vector3(0.0, 1.0, 1.8);
+          delegates[1].x = startPos.x + (activeSlotPos.x - startPos.x) * ease_t;
+          delegates[1].y = startPos.y + (activeSlotPos.y - startPos.y) * ease_t;
+          delegates[1].z = startPos.z + (activeSlotPos.z - startPos.z) * ease_t;
+          
+          delegates[1].scale = 1.0 + 0.15 * ease_t;
+          delegates[1].status = "ACTIVE_SLOT";
+          
+          delegates[0].status = "ELECTED";
+          delegates[2].status = "ELECTED";
+          delegates[3].status = "ELECTED";
+        }
+      }
+      
+      // Step 3: Block Production (40 to 60)
+      else if (currentProg >= 40 && currentProg < 60) {
+        const t = (currentProg - 40) / 20;
+        
+        if (simState.current.schedulerRing) {
+          scene.remove(simState.current.schedulerRing);
+          simState.current.schedulerRing = null;
+        }
+        
+        delegates[1].x = 0.0;
+        delegates[1].y = 1.0;
+        delegates[1].z = 1.8;
+        delegates[1].scale = 1.15;
+        delegates[1].status = "PRODUCING";
+        
+        // Phase 3A: 0% to 55% step progress (40 to 51 prog) - Block materialization
+        if (t < 0.55) {
+          const t_scale = t / 0.55;
+          const ease_scale = t_scale * t_scale * (3 - 2 * t_scale);
+          
+          if (!simState.current.dposBlock && scene) {
+            const blockGeom = createRoundedBoxGeometry(0.5, 0.5, 0.5, 0.08, 4);
+            const blockMat = new THREE.MeshStandardMaterial({
+              color: 0x00d4b8,
+              emissive: 0x00d4b8,
+              emissiveIntensity: 0.6,
+              roughness: 0.3,
+              metalness: 0.8
+            });
+            const blockMesh = new THREE.Mesh(blockGeom, blockMat);
+            blockMesh.position.set(0.0, 2.2, 1.8);
+            blockMesh.scale.set(0, 0, 0);
+            scene.add(blockMesh);
+            simState.current.dposBlock = blockMesh;
+          }
+          
+          if (simState.current.dposBlock) {
+            simState.current.dposBlock.scale.set(ease_scale, ease_scale, ease_scale);
+          }
+        }
+        // Phase 3B: 55% to 100% step progress (51 to 60 prog) - Block travels to ledger chain
+        else {
+          const t_travel = (t - 0.55) / 0.45;
+          const ease_travel = t_travel * t_travel * (3 - 2 * t_travel);
+          
+          const startPos = new THREE.Vector3(0.0, 2.2, 1.8);
+          const endPos = new THREE.Vector3(1.8, -1.5, -3.2);
+          
+          if (simState.current.dposBlock) {
+            simState.current.dposBlock.position.lerpVectors(startPos, endPos, ease_travel);
+            
+            const brightTeal = new THREE.Color(0x00d4b8);
+            const deepTeal = new THREE.Color(0x0a9c86);
+            simState.current.dposBlock.material.color.lerpColors(brightTeal, deepTeal, ease_travel);
+            simState.current.dposBlock.material.emissive.lerpColors(brightTeal, deepTeal, ease_travel);
+            simState.current.dposBlock.material.emissiveIntensity = 0.6 - 0.45 * ease_travel;
+          }
+        }
+      }
+      
+      // Step 4: Delegate Verification (60 to 80)
+      else if (currentProg >= 60 && currentProg < 80) {
+        const t = (currentProg - 60) / 20;
+        
+        if (simState.current.dposBlock) {
+          simState.current.dposBlock.position.set(1.8, -1.5, -3.2);
+          simState.current.dposBlock.material.color.setHex(0x0a9c86);
+          simState.current.dposBlock.material.emissive.setHex(0x0a9c86);
+          simState.current.dposBlock.material.emissiveIntensity = 0.15;
+        }
+        
+        delegates[1].x = 0.0;
+        delegates[1].y = 1.0;
+        delegates[1].z = 1.8;
+        delegates[1].scale = 1.15;
+        delegates[1].status = "VERIFYING";
+        
+        // Phase 4A: 0% to 50% step progress (60 to 70 prog) - Emit verification lines
+        if (t < 0.5) {
+          const t_line = t / 0.5;
+          const verifiers = [delegates[0], delegates[2], delegates[3], delegates[4]];
+          const blockPos = new THREE.Vector3(1.8, -1.5, -3.2);
+          
+          if (dposLines.current.length === 0 && scene) {
+            verifiers.forEach(v => {
+              const startPos = new THREE.Vector3(v.x, v.y, v.z);
+              const line = createThickLine(startPos, blockPos, 0.015, 0x00d4b8, 0.8);
+              scene.add(line);
+              dposLines.current.push(line);
+            });
+          }
+          
+          if (dposLines.current.length > 0) {
+            dposLines.current.forEach((line, idx) => {
+              const v = verifiers[idx];
+              const startPos = new THREE.Vector3(v.x, v.y, v.z);
+              const currentEnd = new THREE.Vector3().lerpVectors(startPos, blockPos, t_line);
+              
+              line.position.copy(new THREE.Vector3().addVectors(startPos, currentEnd).multiplyScalar(0.5));
+              const dist = startPos.distanceTo(currentEnd);
+              line.scale.set(1, Math.max(0.001, dist / startPos.distanceTo(blockPos)), 1);
+            });
+          }
+        }
+        // Phase 4B: 50% to 85% step progress (70 to 77 prog) - Confirm ring pulses
+        else if (t >= 0.5 && t < 0.85) {
+          if (dposLines.current.length > 0) {
+            dposLines.current.forEach(line => {
+              if (line.material) line.material.opacity = 0.25;
+            });
+          }
+          
+          if (!simState.current.verifierPulsesFired && scene) {
+            simState.current.verifierPulsesFired = true;
+            const verifiers = [delegates[0], delegates[2], delegates[3], delegates[4]];
+            verifiers.forEach(v => {
+              v.status = "VERIFIED";
+              const ringGeo = new THREE.RingGeometry(0.5, 1.2, 32);
+              const ringMat = new THREE.MeshBasicMaterial({
+                color: 0x00d4b8,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.8
+              });
+              const ring = new THREE.Mesh(ringGeo, ringMat);
+              ring.position.set(v.x, v.y, v.z);
+              ring.rotation.x = Math.PI / 2;
+              scene.add(ring);
+              
+              threeParticles.current.push({
+                mesh: ring,
+                type: "sig-pulse",
+                life: 1.0,
+                decay: 0.04 * speed
+              });
+            });
+          }
+        }
+        // Phase 4C: 85% to 100% step progress (77 to 80 prog) - Confirmed outline glow
+        else {
+          if (dposLines.current.length > 0) {
+            dposLines.current.forEach(line => scene.remove(line));
+            dposLines.current = [];
+          }
+          
+          if (!simState.current.blockGlowCreated && scene && simState.current.dposBlock) {
+            simState.current.blockGlowCreated = true;
+            
+            const glowGeo = new THREE.BoxGeometry(0.58, 0.58, 0.58);
+            const glowMat = new THREE.MeshBasicMaterial({
+              color: 0x00d4b8,
+              wireframe: true,
+              transparent: true,
+              opacity: 0.45
+            });
+            const glowMesh = new THREE.Mesh(glowGeo, glowMat);
+            glowMesh.position.copy(simState.current.dposBlock.position);
+            scene.add(glowMesh);
+            simState.current.blockGlowMesh = glowMesh;
+          }
+        }
+      }
+      
+      // Step 5: Governance Recall (80 to 100)
+      else if (currentProg >= 80 && currentProg <= 100) {
+        const t = (currentProg - 80) / 20;
+        
+        if (dposLines.current.length > 0) {
+          dposLines.current.forEach(line => scene.remove(line));
+          dposLines.current = [];
+        }
+        if (simState.current.blockGlowMesh) {
+          scene.remove(simState.current.blockGlowMesh);
+          simState.current.blockGlowMesh = null;
+        }
+        
+        // Return DEL_02 to its arc position
+        const t_ret = Math.min(1.0, t / 0.15);
+        const ease_ret = t_ret * t_ret * (3 - 2 * t_ret);
+        const activeSlotPos = new THREE.Vector3(0.0, 1.0, 1.8);
+        const arcPos = new THREE.Vector3(3.2, 0.2, -1.2);
+        delegates[1].x = activeSlotPos.x + (arcPos.x - activeSlotPos.x) * ease_ret;
+        delegates[1].y = activeSlotPos.y + (arcPos.y - activeSlotPos.y) * ease_ret;
+        delegates[1].z = activeSlotPos.z + (arcPos.z - activeSlotPos.z) * ease_ret;
+        delegates[1].scale = 1.15 - 0.15 * ease_ret;
+        delegates[1].status = "ELECTED";
+        
+        // Phase 5A: 15% to 50% step progress (83 to 90 prog) - Voter anger lines
+        if (t >= 0.15 && t < 0.5) {
+          const t_line = (t - 0.15) / 0.35;
+          const targetPos = new THREE.Vector3(delegates[3].x, delegates[3].y, delegates[3].z);
+          const angryVoters = [voters[0], voters[1], voters[3]];
+          
+          if (dposLines.current.length === 0 && scene) {
+            angryVoters.forEach(v => {
+              v.status = "RECALL_VOTE";
+              const startPos = new THREE.Vector3(v.x, v.y, v.z);
+              const line = createThickLine(startPos, targetPos, 0.02, 0xe24a4a, 0.9);
+              scene.add(line);
+              dposLines.current.push(line);
+            });
+          }
+          
+          if (dposLines.current.length > 0) {
+            dposLines.current.forEach((line, idx) => {
+              const v = angryVoters[idx];
+              const startPos = new THREE.Vector3(v.x, v.y, v.z);
+              const currentEnd = new THREE.Vector3().lerpVectors(startPos, targetPos, t_line);
+              
+              line.position.copy(new THREE.Vector3().addVectors(startPos, currentEnd).multiplyScalar(0.5));
+              const dist = startPos.distanceTo(currentEnd);
+              line.scale.set(1, Math.max(0.001, dist / startPos.distanceTo(targetPos)), 1);
+            });
+          }
+        }
+        // Phase 5B: 50% to 75% step progress (90 to 95 prog) - Slashed warning flashes
+        else if (t >= 0.5 && t < 0.75) {
+          if (dposLines.current.length > 0) {
+            dposLines.current.forEach(line => scene.remove(line));
+            dposLines.current = [];
+          }
+          voters.forEach(v => { v.status = "VOTING"; });
+          delegates[3].status = "SLASHED";
+        }
+        // Phase 5C: 75% to 90% step progress (95 to 98 prog) - DEL_04 flies out
+        else if (t >= 0.75 && t < 0.9) {
+          const t_out = (t - 0.75) / 0.15;
+          const ease_out = t_out * t_out;
+          
+          const startArcPos = new THREE.Vector3(3.2, 0.2, 1.2);
+          const outPos = new THREE.Vector3(4.5, -1.0, 2.0);
+          
+          delegates[3].x = startArcPos.x + (outPos.x - startArcPos.x) * ease_out;
+          delegates[3].y = startArcPos.y + (outPos.y - startArcPos.y) * ease_out;
+          delegates[3].z = startArcPos.z + (outPos.z - startArcPos.z) * ease_out;
+          
+          delegates[3].scale = 1.0 - 0.4 * ease_out;
+          delegates[3].opacity = 1.0 - 0.7 * ease_out;
+          delegates[3].status = "RECALLED_GREY";
+        }
+        // Phase 5D: 90% to 100% step progress (98 to 100 prog) - Voter 5 promotes to arc
+        else {
+          delegates[3].x = 4.5;
+          delegates[3].y = -1.0;
+          delegates[3].z = 2.0;
+          delegates[3].scale = 0.6;
+          delegates[3].opacity = 0.3;
+          delegates[3].status = "RECALLED_GREY";
+          
+          const t_promo = (t - 0.9) / 0.1;
+          const ease_promo = t_promo * t_promo * (3 - 2 * t_promo);
+          
+          const voterStart = new THREE.Vector3(-3.8, 0.9, -0.1);
+          const delegateArcPos = new THREE.Vector3(3.2, 0.2, 1.2);
+          
+          voters[4].x = voterStart.x + (delegateArcPos.x - voterStart.x) * ease_promo;
+          voters[4].y = voterStart.y + (delegateArcPos.y - voterStart.y) * ease_promo;
+          voters[4].z = voterStart.z + (delegateArcPos.z - voterStart.z) * ease_promo;
+          
+          voters[4].label = "DEL_04_NEW";
+          voters[4].status = "STANDBY";
         }
       }
     }
@@ -2026,6 +2907,71 @@ export default function SimulationEngine() {
     }
   }
 
+  const renderDposBlockLabels = () => {
+    if (!threeCamera.current || !blockchainGroup.current || !canvasRef.current) return null;
+    const canvas = canvasRef.current;
+    const containerWidth = canvas.clientWidth;
+    const containerHeight = canvas.clientHeight;
+    const labels = [];
+    
+    // 1. Existing finalized blocks in blockchainGroup
+    blockchainGroup.current.children.forEach((child, idx) => {
+      if (child.isMesh) {
+        const tempV = new THREE.Vector3().copy(child.position);
+        tempV.project(threeCamera.current);
+        const screenX = (tempV.x * 0.5 + 0.5) * containerWidth;
+        const screenY = (tempV.y * -0.5 + 0.5) * containerHeight;
+        const isVisible = tempV.z <= 1.0 && screenX >= 0 && screenX <= containerWidth && screenY >= 0 && screenY <= containerHeight;
+        
+        if (isVisible) {
+          let producer = child.userData.producerLabel || "DEL_02";
+          labels.push(
+            <div
+              key={`block-label-${idx}`}
+              className="absolute pointer-events-none select-none -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
+              style={{
+                left: `${screenX}px`,
+                top: `${screenY + 28}px`,
+              }}
+            >
+              <div className="px-1.5 py-0.5 bg-slate-900/90 border border-emerald-500/40 rounded text-[7.5px] font-mono font-extrabold text-emerald-450 tracking-wider shadow-md uppercase">
+                {producer}
+              </div>
+            </div>
+          );
+        }
+      }
+    });
+    
+    // 2. Active animating block in Step 3/4
+    if (simState.current.dposBlock) {
+      const tempV = new THREE.Vector3().copy(simState.current.dposBlock.position);
+      tempV.project(threeCamera.current);
+      const screenX = (tempV.x * 0.5 + 0.5) * containerWidth;
+      const screenY = (tempV.y * -0.5 + 0.5) * containerHeight;
+      const isVisible = tempV.z <= 1.0 && screenX >= 0 && screenX <= containerWidth && screenY >= 0 && screenY <= containerHeight;
+      
+      if (isVisible) {
+        labels.push(
+          <div
+            key="block-label-animating"
+            className="absolute pointer-events-none select-none -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
+            style={{
+              left: `${screenX}px`,
+              top: `${screenY + 28}px`,
+            }}
+          >
+            <div className="px-1.5 py-0.5 bg-slate-900/90 border border-emerald-500/40 rounded text-[7.5px] font-mono font-extrabold text-emerald-450 tracking-wider shadow-md uppercase animate-pulse">
+              DEL_02
+            </div>
+          </div>
+        );
+      }
+    }
+    
+    return labels;
+  };
+
   // Render Helpers to avoid code duplication across Normal and Fullscreen states
   const renderCanvas = () => (
     <div className={isFullscreen 
@@ -2058,7 +3004,7 @@ export default function SimulationEngine() {
           <div
             key={node.id}
             id={`node-label-${node.id}`}
-            className="absolute pointer-events-none select-none -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-0.5"
+            className="absolute pointer-events-none select-none -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1.5"
             style={{ left: 0, top: 0, display: "none" }}
           >
             <div className="px-2 py-0.8 bg-slate-950/85 border border-brand-border/60 rounded text-[9px] font-bold font-sans text-white tracking-wide shadow-md">
@@ -2071,6 +3017,8 @@ export default function SimulationEngine() {
             )}
           </div>
         ))}
+        {/* Render block labels for DPoS blocks in blockchainGroup */}
+        {selectedAlgo === "dpos" && renderDposBlockLabels()}
       </div>
 
       {/* Floating Protocol Inspector Overlay HUD */}
