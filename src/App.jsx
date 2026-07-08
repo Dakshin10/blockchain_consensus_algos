@@ -18,8 +18,9 @@ function AppContent() {
   const { state, dispatch } = useExplorer()
   const { selectedAlgo, highContrast } = state
   
-  // Collapsible utility panel open state
+  // Collapsible panels open states
   const [ledgerExpanded, setLedgerExpanded] = useState(false)
+  const [sidebarExpanded, setSidebarExpanded] = useState(true)
 
   // Alt + Number Keyboard Navigation Shortcuts to jump directly to scroll anchors
   useEffect(() => {
@@ -64,17 +65,20 @@ function AppContent() {
       {/* 2. Main Body layout: Sidebar + Workspace + Collapsible Ledger */}
       <div className="flex-grow flex w-full overflow-hidden relative" style={{ height: "calc(100vh - 64px)" }}>
         
-        {/* Left permanent selection navigation (22% width ratio) */}
-        <div className="w-[22%] min-w-[200px] max-w-[260px] h-full flex-shrink-0 border-r border-brand-border/40 z-10">
-          <Sidebar />
+        {/* Left selection navigation */}
+        <div 
+          className="h-full flex-shrink-0 utility-panel-transition border-r border-brand-border/40 z-10"
+          style={{ width: sidebarExpanded ? "260px" : "48px" }}
+        >
+          <Sidebar isExpanded={sidebarExpanded} setIsExpanded={setSidebarExpanded} />
         </div>
 
-        {/* Middle Unified Learning Area (73% width ratio, scrollable guided text-book) */}
+        {/* Middle Unified Learning Area */}
         <main 
           id="main-workspace-view"
           role="main"
           className="flex-grow h-full overflow-y-auto p-8 scrollbar-thin bg-brand-dark/15 flex flex-col gap-14"
-          style={{ width: ledgerExpanded ? "calc(73% - 290px)" : "73%" }}
+          style={{ width: `calc(100% - ${sidebarExpanded ? "260px" : "48px"} - ${ledgerExpanded ? "340px" : "48px"})` }}
         >
           
           {/* Section 1: Intro, Problem & Interactive Workflow Journey */}

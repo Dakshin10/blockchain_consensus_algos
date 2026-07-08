@@ -1,8 +1,9 @@
-import React, { useRef, useState } from "react"
+import React, { useRef } from "react"
 import { useExplorer } from "../../context/ExplorerContext"
 import { consensusData } from "../../constants/consensusData"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 
-export default function Sidebar() {
+export default function Sidebar({ isExpanded, setIsExpanded }) {
   const { state, dispatch } = useExplorer()
   const { selectedAlgo } = state
   const sidebarRef = useRef(null)
@@ -44,103 +45,149 @@ export default function Sidebar() {
     <nav 
       ref={sidebarRef}
       aria-label="Algorithm Selection Drawer" 
-      className="w-64 border-r border-brand-border bg-slate-950/70 backdrop-blur-md flex flex-col h-full flex-shrink-0"
+      className="w-full bg-slate-950/70 backdrop-blur-md flex flex-col h-full flex-shrink-0"
     >
       {/* Title / Section header */}
-      <div className="p-4 border-b border-brand-border/40 flex-shrink-0">
-        <span className="text-[10px] font-mono font-bold tracking-wider text-slate-500 uppercase">
-          CONSENSUS PROTOCOLS ({algoKeys.length})
-        </span>
+      <div className="p-4 border-b border-brand-border/40 flex-shrink-0 flex items-center justify-between">
+        {isExpanded ? (
+          <>
+            <span className="text-[10px] font-mono font-bold tracking-wider text-slate-500 uppercase">
+              CONSENSUS PROTOCOLS ({algoKeys.length})
+            </span>
+            <button 
+              onClick={() => setIsExpanded(false)}
+              className="p-1 rounded bg-slate-900 border border-brand-border/40 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+              title="Collapse Sidebar"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+          </>
+        ) : (
+          <button 
+            onClick={() => setIsExpanded(true)}
+            className="mx-auto p-1.5 rounded bg-slate-900 border border-brand-border/40 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            title="Expand Sidebar"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* List of focusable algorithm selector cards */}
-      <div className="flex-grow p-3 flex flex-col gap-3 overflow-y-auto scrollbar-thin">
+      <div className={`flex-grow p-3 flex flex-col gap-3 overflow-y-auto ${isExpanded ? 'scrollbar-thin' : 'scrollbar-none items-center'}`}>
         {algoKeys.map((key, index) => {
           const algo = consensusData[key]
           const isSelected = selectedAlgo === key
 
-          let borderClass = "border-brand-border/40 bg-slate-900/10 hover:border-brand-border hover:bg-slate-900/30"
-          let textClass = "text-slate-400"
-          let badgeClass = "bg-slate-950 text-slate-500 border-brand-border"
-          
-          if (isSelected) {
-            textClass = "text-white"
+          let dotColor = "bg-slate-700"
+          if (algo.family === "nakamoto") dotColor = "bg-amber-500"
+          else if (algo.family === "stake") dotColor = "bg-violet-500"
+          else if (algo.family === "byzantine") dotColor = "bg-cyan-500"
+          else if (algo.family === "authority") dotColor = "bg-emerald-500"
+          else if (algo.family === "tee") dotColor = "bg-emerald-400"
+          else if (algo.family === "avalanche") dotColor = "bg-rose-500"
+
+          if (isExpanded) {
+            let borderClass = "border-brand-border/40 bg-slate-900/10 hover:border-brand-border hover:bg-slate-900/30"
+            let textClass = "text-slate-400"
+            let badgeClass = "bg-slate-950 text-slate-500 border-brand-border"
             
-            // Map family borders dynamically
-            if (algo.family === "nakamoto") {
-              borderClass = "border-amber-500/50 bg-amber-500/5"
-              badgeClass = "bg-amber-500/10 text-amber-400 border-amber-500/20"
-            } else if (algo.family === "stake") {
-              borderClass = "border-violet-500/50 bg-violet-500/5"
-              badgeClass = "bg-violet-500/10 text-violet-400 border-violet-500/20"
-            } else if (algo.family === "byzantine") {
-              borderClass = "border-cyan-500/50 bg-cyan-500/5"
-              badgeClass = "bg-cyan-500/10 text-cyan-400 border-cyan-500/20"
-            } else if (algo.family === "authority") {
-              borderClass = "border-emerald-500/50 bg-emerald-500/5"
-              badgeClass = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-            } else if (algo.family === "tee") {
-              borderClass = "border-emerald-400/50 bg-emerald-400/5"
-              badgeClass = "bg-emerald-400/10 text-emerald-350 border-emerald-400/20"
-            } else if (algo.family === "avalanche") {
-              borderClass = "border-rose-500/50 bg-rose-500/5"
-              badgeClass = "bg-rose-500/10 text-rose-400 border-rose-500/20"
+            if (isSelected) {
+              textClass = "text-white"
+              
+              if (algo.family === "nakamoto") {
+                borderClass = "border-amber-500/50 bg-amber-500/5"
+                badgeClass = "bg-amber-500/10 text-amber-400 border-amber-500/20"
+              } else if (algo.family === "stake") {
+                borderClass = "border-violet-500/50 bg-violet-500/5"
+                badgeClass = "bg-violet-500/10 text-violet-400 border-violet-500/20"
+              } else if (algo.family === "byzantine") {
+                borderClass = "border-cyan-500/50 bg-cyan-500/5"
+                badgeClass = "bg-cyan-500/10 text-cyan-400 border-cyan-500/20"
+              } else if (algo.family === "authority") {
+                borderClass = "border-emerald-500/50 bg-emerald-500/5"
+                badgeClass = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+              } else if (algo.family === "tee") {
+                borderClass = "border-emerald-400/50 bg-emerald-400/5"
+                badgeClass = "bg-emerald-400/10 text-emerald-350 border-emerald-400/20"
+              } else if (algo.family === "avalanche") {
+                borderClass = "border-rose-500/50 bg-rose-500/5"
+                badgeClass = "bg-rose-500/10 text-rose-400 border-rose-500/20"
+              }
             }
-          }
 
-          return (
-            <div
-              key={key}
-              role="button"
-              tabIndex={0}
-              aria-selected={isSelected}
-              onClick={() => handleSelect(key)}
-              onKeyDown={(e) => handleKeyDown(e, index)}
-              className={`p-3.5 rounded-xl border flex flex-col gap-2 cursor-pointer transition-all duration-300 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${borderClass}`}
-              style={{
-                boxShadow: isSelected ? `0 0 14px ${algo.glow}` : "none"
-              }}
-            >
-              {/* Header: Name & Year */}
-              <div className="flex justify-between items-start gap-1">
-                <h3 className={`text-xs font-bold leading-tight uppercase tracking-wide ${isSelected ? "text-white" : "text-slate-300"}`}>
-                  {algo.name}
-                </h3>
-                <span className="text-[8px] font-mono text-slate-500 font-bold bg-slate-950 px-1 py-0.5 rounded border border-brand-border/40">
-                  {algo.yearIntroduced}
-                </span>
-              </div>
-
-              {/* Mechanism Summary */}
-              <p className="text-[10px] text-slate-400 leading-relaxed font-light line-clamp-2">
-                {algo.mechanismSummary}
-              </p>
-
-              {/* Footer metadata grid */}
-              <div className="grid grid-cols-2 gap-1 border-t border-brand-border/20 pt-2 mt-1 text-[8px] font-mono text-slate-500">
-                <div className="flex flex-col">
-                  <span>CHAIN</span>
-                  <span className="text-slate-300 font-bold uppercase truncate">{algo.primaryBlockchain}</span>
-                </div>
-                <div className="flex flex-col items-end">
-                  <span>PARADIGM</span>
-                  <span className={`px-1 rounded border text-[7px] font-extrabold uppercase ${badgeClass}`}>
-                    {algo.family}
+            return (
+              <div
+                key={key}
+                role="button"
+                tabIndex={0}
+                aria-selected={isSelected}
+                onClick={() => handleSelect(key)}
+                onKeyDown={(e) => handleKeyDown(e, index)}
+                className={`p-3.5 rounded-xl border flex flex-col gap-2 cursor-pointer transition-all duration-300 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${borderClass}`}
+                style={{
+                  boxShadow: isSelected ? `0 0 14px ${algo.glow}` : "none"
+                }}
+              >
+                {/* Header: Name & Year */}
+                <div className="flex justify-between items-start gap-1">
+                  <h3 className={`text-xs font-bold leading-tight uppercase tracking-wide ${isSelected ? "text-white" : "text-slate-300"}`}>
+                    {algo.name}
+                  </h3>
+                  <span className="text-[8px] font-mono text-slate-500 font-bold bg-slate-950 px-1 py-0.5 rounded border border-brand-border/40">
+                    {algo.yearIntroduced}
                   </span>
                 </div>
+
+                {/* Mechanism Summary */}
+                <p className="text-[10px] text-slate-400 leading-relaxed font-light line-clamp-2">
+                  {algo.mechanismSummary}
+                </p>
+
+                {/* Footer metadata grid */}
+                <div className="grid grid-cols-2 gap-1 border-t border-brand-border/20 pt-2 mt-1 text-[8px] font-mono text-slate-500">
+                  <div className="flex flex-col">
+                    <span>CHAIN</span>
+                    <span className="text-slate-300 font-bold uppercase truncate">{algo.primaryBlockchain}</span>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span>PARADIGM</span>
+                    <span className={`px-1 rounded border text-[7px] font-extrabold uppercase ${badgeClass}`}>
+                      {algo.family}
+                    </span>
+                  </div>
+                </div>
               </div>
-            </div>
-          )
+            )
+          } else {
+            return (
+              <button
+                key={key}
+                onClick={() => handleSelect(key)}
+                onKeyDown={(e) => handleKeyDown(e, index)}
+                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer border ${
+                  isSelected 
+                    ? "border-indigo-500 bg-indigo-950/20 shadow-[0_0_10px_rgba(99,102,241,0.4)] scale-110" 
+                    : "border-brand-border/40 bg-slate-950/40 hover:bg-slate-900 hover:scale-105"
+                }`}
+                title={algo.name}
+              >
+                <div className={`w-3.5 h-3.5 rounded-full ${dotColor} ${isSelected ? 'animate-pulse' : ''}`} />
+              </button>
+            )
+          }
         })}
       </div>
 
       {/* Static Footer Telemetry signature */}
-      <div className="p-3 border-t border-brand-border/40 bg-slate-950/40 text-[9px] font-mono text-slate-500 flex flex-col gap-1.5 flex-shrink-0">
-        <div className="flex justify-between items-center">
-          <span>COORDINATOR:</span>
-          <span className="text-slate-350 font-bold uppercase">STITCH-NET</span>
+      {isExpanded && (
+        <div className="p-3 border-t border-brand-border/40 bg-slate-950/40 text-[9px] font-mono text-slate-500 flex flex-col gap-1.5 flex-shrink-0">
+          <div className="flex justify-between items-center">
+            <span>COORDINATOR:</span>
+            <span className="text-slate-350 font-bold uppercase">STITCH-NET</span>
+          </div>
         </div>
-      </div>
+      )}
     </nav>
   )
 }

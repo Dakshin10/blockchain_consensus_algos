@@ -367,6 +367,95 @@ export const consensusData = {
     ]
   },
 
+  poh: {
+    id: "poh",
+    name: "Proof of History",
+    compatibilityGroup: CONSENSUS_FAMILIES.NAKAMOTO,
+    family: CONSENSUS_FAMILIES.NAKAMOTO,
+    color: "#f59e0b",
+    glow: "rgba(245, 158, 11, 0.15)",
+    yearIntroduced: 2017,
+    primaryBlockchain: "Solana",
+    mechanismSummary: "Verifiable Delay Function (VDF) hashing loop creates a shared clock.",
+    overview: "A cryptographic clock based on recursive hashing that timestamps transactions before consensus, eliminating validator-to-validator negotiation overhead.",
+    problemStatement: "Distributed networks suffer latency bottlenecks because validators must negotiate transaction times before ordering blocks.",
+    coreMechanism: "Verifiable Delay Functions (VDF) running recursive SHA-256 loops on specialized hardware.",
+    workflow: "A leader node runs continuous SHA-256 loops, incoming transactions are merged into the hash state, validators verify the hash segments in parallel, and PoS votes finalize state changes.",
+    
+    steps: [
+      {
+        title: "Sequential Ticking",
+        description: "The leader node runs a continuous loop of SHA-256 hashes.",
+        purpose: "Create a verifiable chronological timeline of clock 'ticks'.",
+        inputs: "Previous hash output, loop counter.",
+        outputs: "Sequential tick hash chain.",
+        participants: "Active leader node.",
+        securityContribution: "VDF math proves time elapsed between tick computations.",
+        realWorldExample: "Solana leader node calculates millions of hashes per second.",
+        animationState: "TICK_LOOP"
+      },
+      {
+        title: "Transaction Anchoring",
+        description: "The leader hashes incoming transactions directly into the recursive clock state.",
+        purpose: "Assign a verifiable timestamp to transactions.",
+        inputs: "Transaction data, current hash tick.",
+        outputs: "Hash tick containing transaction data.",
+        participants: "Active leader node.",
+        securityContribution: "Hashing transaction data into ticks proves they occurred at a specific time.",
+        realWorldExample: "User transaction is hashed into the SHA-256 stream.",
+        animationState: "INJECT"
+      },
+      {
+        title: "Block Packaging",
+        description: "The leader packages transactions and time proofs, broadcasting them to validators.",
+        purpose: "Distribute ordered transactions for validation.",
+        inputs: "Transactions, VDF time proofs.",
+        outputs: "Broadcast block segments.",
+        participants: "Active leader node, validators.",
+        securityContribution: "Pre-ordered blocks prevent transaction front-running.",
+        realWorldExample: "Leader packages transactions into a block, broadcasting it to validators.",
+        animationState: "SEGMENT"
+      },
+      {
+        title: "Parallel Verification",
+        description: "Validators split the block's VDF proof and verify the hash segments in parallel.",
+        purpose: "Validate the timeline without consensus latency.",
+        inputs: "Block hash segments, validator GPU cores.",
+        outputs: "Verification status confirmations.",
+        participants: "Validator nodes.",
+        securityContribution: "Parallel verification ensures nodes can verify block history in milliseconds.",
+        realWorldExample: "Validators use GPU threads to verify split segments of the hash chain.",
+        animationState: "PARALLEL_CHECK"
+      },
+      {
+        title: "State Finalization",
+        description: "Validators cast Proof of Stake votes to finalize the block.",
+        purpose: "Achieve economic finality and secure ledger changes.",
+        inputs: "Vetted block, PoS voting stakes.",
+        outputs: "Finalized ledger tip update.",
+        participants: "Validator nodes, PoS protocol.",
+        securityContribution: "PoS voting adds economic security to block transactions.",
+        realWorldExample: "Validators cast votes, finalizing the block in under 400ms.",
+        animationState: "FINALIZE_STATE"
+      }
+    ],
+
+    trilemma: { scalability: 10, security: 7, decentralization: 5 },
+    performance: {
+      tps: "50,000+ TPS",
+      blockTime: "400 milliseconds",
+      energy: "Moderate; requires high-frequency CPU cores for generator ticks",
+      scalability: "Extremely high; avoids traditional consensus round-trip delays",
+      security: "High; backed by PoS voting rules and cryptographic sequence proofs",
+      decentralization: "Medium; high hardware and bandwidth requirements limit validator participation",
+      overhead: "Requires high-end, dedicated validator hardware (VDF ASIC/high-end CPUs)"
+    },
+    attackResistance: "ASIC VDF exploit resistance. Attackers trying to speed up block creation must develop faster SHA-256 loop processors than the global leader.",
+    realBlockchains: [
+      { name: "Solana", cryptocurrencies: "SOL", smartContractLanguages: ["Rust", "C", "C++"], executionEnvironment: "Sealevel Parallel Execution Runtime", virtualMachine: "LLVM BPF (Solana VM)", layerClassification: "Layer 1 High-Performance Ledger", rationale: "Built to match NASDAQ transaction throughput, keeping a single global state in sync without sharding latency." }
+    ]
+  },
+
   poa: {
     id: "poa",
     name: "Proof of Authority",
@@ -544,95 +633,6 @@ export const consensusData = {
     realBlockchains: [
       { name: "Hyperledger Fabric", cryptocurrencies: "None (Tokenless)", smartContractLanguages: ["Go", "Java", "JavaScript"], executionEnvironment: "Chaincode Container (Docker)", virtualMachine: "Docker Container Runtime", layerClassification: "Layer 1 Permissioned Enterprise Ledger", rationale: "A private enterprise ledger needing high performance, strict permissioned nodes, and instant finality without a token." },
       { name: "Zilliqa", cryptocurrencies: "ZIL", smartContractLanguages: ["Scilla"], executionEnvironment: "Zilliqa VM Node", virtualMachine: "Zilliqa Runtime (ZVM)", layerClassification: "Layer 1 Sharded Smart Contract Ledger", rationale: "Combines PBFT for transaction processing within sharded committees with PoW for Sybil resistance." }
-    ]
-  },
-
-  poh: {
-    id: "poh",
-    name: "Proof of History",
-    compatibilityGroup: CONSENSUS_FAMILIES.NAKAMOTO,
-    family: CONSENSUS_FAMILIES.NAKAMOTO,
-    color: "#f59e0b",
-    glow: "rgba(245, 158, 11, 0.15)",
-    yearIntroduced: 2017,
-    primaryBlockchain: "Solana",
-    mechanismSummary: "Verifiable Delay Function (VDF) hashing loop creates a shared clock.",
-    overview: "A cryptographic clock based on recursive hashing that timestamps transactions before consensus, eliminating validator-to-validator negotiation overhead.",
-    problemStatement: "Distributed networks suffer latency bottlenecks because validators must negotiate transaction times before ordering blocks.",
-    coreMechanism: "Verifiable Delay Functions (VDF) running recursive SHA-256 loops on specialized hardware.",
-    workflow: "A leader node runs continuous SHA-256 loops, incoming transactions are merged into the hash state, validators verify the hash segments in parallel, and PoS votes finalize state changes.",
-    
-    steps: [
-      {
-        title: "Sequential Ticking",
-        description: "The leader node runs a continuous loop of SHA-256 hashes.",
-        purpose: "Create a verifiable chronological timeline of clock 'ticks'.",
-        inputs: "Previous hash output, loop counter.",
-        outputs: "Sequential tick hash chain.",
-        participants: "Active leader node.",
-        securityContribution: "VDF math proves time elapsed between tick computations.",
-        realWorldExample: "Solana leader node calculates millions of hashes per second.",
-        animationState: "TICK_LOOP"
-      },
-      {
-        title: "Transaction Anchoring",
-        description: "The leader hashes incoming transactions directly into the recursive clock state.",
-        purpose: "Assign a verifiable timestamp to transactions.",
-        inputs: "Transaction data, current hash tick.",
-        outputs: "Hash tick containing transaction data.",
-        participants: "Active leader node.",
-        securityContribution: "Hashing transaction data into ticks proves they occurred at a specific time.",
-        realWorldExample: "User transaction is hashed into the SHA-256 stream.",
-        animationState: "INJECT"
-      },
-      {
-        title: "Block Packaging",
-        description: "The leader packages transactions and time proofs, broadcasting them to validators.",
-        purpose: "Distribute ordered transactions for validation.",
-        inputs: "Transactions, VDF time proofs.",
-        outputs: "Broadcast block segments.",
-        participants: "Active leader node, validators.",
-        securityContribution: "Pre-ordered blocks prevent transaction front-running.",
-        realWorldExample: "Leader packages transactions into a block, broadcasting it to validators.",
-        animationState: "SEGMENT"
-      },
-      {
-        title: "Parallel Verification",
-        description: "Validators split the block's VDF proof and verify the hash segments in parallel.",
-        purpose: "Validate the timeline without consensus latency.",
-        inputs: "Block hash segments, validator GPU cores.",
-        outputs: "Verification status confirmations.",
-        participants: "Validator nodes.",
-        securityContribution: "Parallel verification ensures nodes can verify block history in milliseconds.",
-        realWorldExample: "Validators use GPU threads to verify split segments of the hash chain.",
-        animationState: "PARALLEL_CHECK"
-      },
-      {
-        title: "State Finalization",
-        description: "Validators cast Proof of Stake votes to finalize the block.",
-        purpose: "Achieve economic finality and secure ledger changes.",
-        inputs: "Vetted block, PoS voting stakes.",
-        outputs: "Finalized ledger tip update.",
-        participants: "Validator nodes, PoS protocol.",
-        securityContribution: "PoS voting adds economic security to block transactions.",
-        realWorldExample: "Validators cast votes, finalizing the block in under 400ms.",
-        animationState: "FINALIZE_STATE"
-      }
-    ],
-
-    trilemma: { scalability: 10, security: 7, decentralization: 5 },
-    performance: {
-      tps: "50,000+ TPS",
-      blockTime: "400 milliseconds",
-      energy: "Moderate; requires high-frequency CPU cores for generator ticks",
-      scalability: "Extremely high; avoids traditional consensus round-trip delays",
-      security: "High; backed by PoS voting rules and cryptographic sequence proofs",
-      decentralization: "Medium; high hardware and bandwidth requirements limit validator participation",
-      overhead: "Requires high-end, dedicated validator hardware (VDF ASIC/high-end CPUs)"
-    },
-    attackResistance: "ASIC VDF exploit resistance. Attackers trying to speed up block creation must develop faster SHA-256 loop processors than the global leader.",
-    realBlockchains: [
-      { name: "Solana", cryptocurrencies: "SOL", smartContractLanguages: ["Rust", "C", "C++"], executionEnvironment: "Sealevel Parallel Execution Runtime", virtualMachine: "LLVM BPF (Solana VM)", layerClassification: "Layer 1 High-Performance Ledger", rationale: "Built to match NASDAQ transaction throughput, keeping a single global state in sync without sharding latency." }
     ]
   },
 
