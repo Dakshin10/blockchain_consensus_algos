@@ -12,6 +12,7 @@ import ImplementationGrid from "./components/panels/ImplementationGrid"
 import CompatibilityMatrix from "./components/panels/CompatibilityMatrix"
 import SimulationEngine from "./components/canvas/SimulationEngine"
 import AttackSimulator from "./components/panels/AttackSimulator"
+import GlobalBackground3D from "./components/canvas/GlobalBackground3D"
 
 function AppContent() {
   const { state, dispatch } = useExplorer()
@@ -52,6 +53,9 @@ function AppContent() {
         highContrast ? "contrast-125 saturate-150" : ""
       }`}
     >
+      {/* 3D Interactive background */}
+      <GlobalBackground3D />
+
       {/* 1. Anchored Fixed Top Header */}
       <div className="h-16 w-full flex-shrink-0 z-30">
         <Header />
