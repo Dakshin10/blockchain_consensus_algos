@@ -11,7 +11,6 @@ import TrilemmaScorecard from "./components/panels/TrilemmaScorecard"
 import ImplementationGrid from "./components/panels/ImplementationGrid"
 import CompatibilityMatrix from "./components/panels/CompatibilityMatrix"
 import SimulationEngine from "./components/canvas/SimulationEngine"
-import AttackSimulator from "./components/panels/AttackSimulator"
 import GlobalBackground3D from "./components/canvas/GlobalBackground3D"
 
 function AppContent() {
@@ -30,9 +29,8 @@ function AppContent() {
           "1": "edu-narrative-intro",
           "2": "edu-narrative-simulation",
           "3": "edu-narrative-trilemma",
-          "4": "edu-narrative-attacks",
-          "5": "edu-narrative-ecosystem",
-          "6": "edu-narrative-compatibility"
+          "4": "edu-narrative-ecosystem",
+          "5": "edu-narrative-compatibility"
         }
         const targetId = sectionsMap[e.key]
         if (targetId) {
@@ -96,10 +94,6 @@ function AppContent() {
             <TrilemmaScorecard />
           </div>
 
-          {/* Section 4: Redesigned Attack Demonstration sandbox */}
-          <div id="edu-narrative-attacks" className="animate-fade-in">
-            <AttackSimulator />
-          </div>
 
           {/* Section 5: Real Blockchains mapping, Compiler pipeline, & L1 vs L2 charts */}
           <div id="edu-narrative-ecosystem" className="animate-fade-in">
