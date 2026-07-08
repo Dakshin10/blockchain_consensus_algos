@@ -479,12 +479,47 @@ export default function SimulationEngine() {
         simState.current.blockGlowMesh = null;
       }
 
+      if (posLines.current) {
+        posLines.current.forEach(line => {
+          threeScene.current.remove(line);
+          line.geometry.dispose();
+          line.material.dispose();
+        });
+        posLines.current = [];
+      }
+
+      if (simState.current.selectionBeam) {
+        threeScene.current.remove(simState.current.selectionBeam);
+        simState.current.selectionBeam.geometry.dispose();
+        simState.current.selectionBeam.material.dispose();
+        simState.current.selectionBeam = null;
+      }
+
+      if (simState.current.posBlock) {
+        threeScene.current.remove(simState.current.posBlock);
+        simState.current.posBlock.geometry.dispose();
+        simState.current.posBlock.material.dispose();
+        simState.current.posBlock = null;
+      }
+
+      if (simState.current.posBlockGlow) {
+        threeScene.current.remove(simState.current.posBlockGlow);
+        simState.current.posBlockGlow.geometry.dispose();
+        simState.current.posBlockGlow.material.dispose();
+        simState.current.posBlockGlow = null;
+      }
+
       simState.current.goldPulseFired = false
       simState.current.blockPulseFired = false
       simState.current.dposPulseFired = false
       simState.current.verifierPulsesFired = false
       simState.current.blockGlowCreated = false
       simState.current.lastDposStep = -1
+      
+      simState.current.posWinnerPulseFired = false
+      simState.current.posBlockGlowCreated = false
+      simState.current.posAttestationFired = false
+      simState.current.lastPosStep = -1
     }
   }
 
@@ -1534,7 +1569,7 @@ export default function SimulationEngine() {
       })
 
       // Expanding finalized wave ripple
-      if (showCompletion && selectedAlgo !== "dpos") {
+      if (showCompletion && selectedAlgo !== "dpos" && selectedAlgo !== "pos") {
         if (!rippleMesh.current) {
           const ripGeo = new THREE.SphereGeometry(1, 32, 16)
           const ripMat = new THREE.MeshBasicMaterial({
@@ -1563,7 +1598,7 @@ export default function SimulationEngine() {
       }
 
       // Slider block committing animation to bottom ledger chain
-      if (showCompletion && selectedAlgo !== "dpos" && !animatingBlock.current) {
+      if (showCompletion && selectedAlgo !== "dpos" && selectedAlgo !== "pos" && !animatingBlock.current) {
         const blockGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5)
         const blockMat = new THREE.MeshStandardMaterial({
           color: 0x10b981,
@@ -1583,7 +1618,7 @@ export default function SimulationEngine() {
         }
       }
 
-      if (animatingBlock.current && selectedAlgo !== "dpos") {
+      if (animatingBlock.current && selectedAlgo !== "dpos" && selectedAlgo !== "pos") {
         const ab = animatingBlock.current
         ab.prog += 0.02 * speed
         ab.mesh.position.lerpVectors(ab.start, ab.end, ab.prog)
@@ -1752,6 +1787,28 @@ export default function SimulationEngine() {
       if (simState.current.blockGlowMesh) {
         dispose3DObject(simState.current.blockGlowMesh, scene)
         simState.current.blockGlowMesh = null
+      }
+
+      if (posLines.current) {
+        posLines.current.forEach(line => {
+          dispose3DObject(line, scene)
+        })
+        posLines.current = []
+      }
+
+      if (simState.current.selectionBeam) {
+        dispose3DObject(simState.current.selectionBeam, scene)
+        simState.current.selectionBeam = null
+      }
+
+      if (simState.current.posBlock) {
+        dispose3DObject(simState.current.posBlock, scene)
+        simState.current.posBlock = null
+      }
+
+      if (simState.current.posBlockGlow) {
+        dispose3DObject(simState.current.posBlockGlow, scene)
+        simState.current.posBlockGlow = null
       }
 
       renderer.dispose()
@@ -2079,99 +2136,484 @@ export default function SimulationEngine() {
     else if (selectedAlgo === "pos") {
       const pool = nodes.find(n => n.type === "pool")
       const validators = nodes.filter(n => n.type === "validator")
-
-      if (currentProg < 12.5) {
-        validators.forEach(v => { v.isWinner = false; v.status = "IDLE"; v.role = "STANDBY" })
-        if (frame % 22 === 0 && isPlaying) {
-          validators.forEach(v => {
-            const startPt = new THREE.Vector3(v.x, v.y, v.z)
-            const endPt = new THREE.Vector3(pool.x, pool.y, pool.z)
-            spawn3DParticle(startPt, endPt, colorHex, "stake")
-          })
-        }
-      } else if (currentProg >= 25 && currentProg < 37.5) {
-        // Draw selection helper line rotating
-        const angle = (frame * 0.05 * speed) % (Math.PI * 2)
-        const targetPt = new THREE.Vector3(3.5 * Math.cos(angle), 0.2, 3.5 * Math.sin(angle))
+      
+      const currentStepIdx = Math.floor(currentProg / 12.5);
+      if (simState.current.lastPosStep !== currentStepIdx) {
+        simState.current.lastPosStep = currentStepIdx;
         
-        if (lightningMesh.current) {
-          scene.remove(lightningMesh.current)
-          lightningMesh.current.geometry.dispose()
-          lightningMesh.current.material.dispose()
+        // Reset properties
+        validators.forEach((v, idx) => {
+          v.scale = currentStepIdx === 0 ? 0.45 : (0.4 + (v.stake / 128) * 0.5);
+          v.opacity = 1.0;
+          v.status = currentStepIdx === 0 ? "IDLE" : "STAKED";
+          v.isWinner = false;
+          if (idx === 1) { // VAL_02
+            v.stake = 64; // Reset to original stake
+          }
+        });
+        
+        if (pool) {
+          pool.scale = 1.0;
+          pool.status = "ACTIVE";
         }
+        
+        // Return original validator positions
+        const stakes = [32, 64, 96, 128, 48, 80];
+        validators.forEach((v, i) => {
+          const angle = (i / 6) * Math.PI * 2;
+          v.x = 3.5 * Math.cos(angle);
+          v.y = 0.2;
+          v.z = 3.5 * Math.sin(angle);
+        });
 
-        const lineGeo = new THREE.BufferGeometry().setFromPoints([
-          new THREE.Vector3(pool.x, pool.y, pool.z),
-          targetPt
-        ])
-        const lineMat = new THREE.LineBasicMaterial({ color: colorHex, opacity: 0.6, transparent: true })
-        const line = new THREE.Line(lineGeo, lineMat)
-        scene.add(line)
-        lightningMesh.current = line
+        // Clean up transient elements
+        if (dposLines.current) {
+          dposLines.current.forEach(line => scene.remove(line));
+          dposLines.current = [];
+        }
+        
+        if (simState.current.selectionBeam) {
+          scene.remove(simState.current.selectionBeam);
+          simState.current.selectionBeam = null;
+        }
+        if (simState.current.posBlock) {
+          scene.remove(simState.current.posBlock);
+          simState.current.posBlock = null;
+        }
+        if (simState.current.posBlockGlow) {
+          scene.remove(simState.current.posBlockGlow);
+          simState.current.posBlockGlow = null;
+        }
+        
+        simState.current.posWinnerPulseFired = false;
+        simState.current.posBlockGlowCreated = false;
+        simState.current.posAttestationFired = false;
+      }
 
-      } else if (currentProg >= 37.5 && currentProg < 50) {
-        if (lightningMesh.current) {
-          scene.remove(lightningMesh.current)
-          lightningMesh.current = null
+      // Step 1: Stake Tokens (0 to 12.5)
+      if (currentProg < 12.5) {
+        const t = currentProg / 12.5;
+        
+        // 0.0s - 0.8s (t < 0.64): Emit gold deposit lines/particles traveling inward
+        if (t < 0.64) {
+          const t_line = t / 0.64;
+          
+          if (dposLines.current.length === 0 && scene && pool) {
+            validators.forEach(v => {
+              const startPos = new THREE.Vector3(v.x, v.y, v.z);
+              const endPos = new THREE.Vector3(pool.x, pool.y, pool.z);
+              const thickness = v.stake / 1200; // proportional
+              const line = createThickLine(startPos, endPos, thickness, 0xd4a62e, 1.0);
+              scene.add(line);
+              dposLines.current.push(line);
+            });
+          }
+          
+          if (dposLines.current.length > 0) {
+            const poolPos = new THREE.Vector3(pool.x, pool.y, pool.z);
+            dposLines.current.forEach((line, idx) => {
+              const v = validators[idx];
+              const startPos = new THREE.Vector3(v.x, v.y, v.z);
+              const currentEnd = new THREE.Vector3().lerpVectors(startPos, poolPos, t_line);
+              line.position.copy(new THREE.Vector3().addVectors(startPos, currentEnd).multiplyScalar(0.5));
+              const dist = startPos.distanceTo(currentEnd);
+              line.scale.set(1, Math.max(0.001, dist / startPos.distanceTo(poolPos)), 1);
+            });
+          }
+          
+          if (frame % 12 === 0 && isPlaying && pool) {
+            validators.forEach(v => {
+              const startPos = new THREE.Vector3(v.x, v.y, v.z);
+              const endPos = new THREE.Vector3(pool.x, pool.y, pool.z);
+              spawn3DParticle(startPos, endPos, 0xf0c860, "stake-deposit");
+            });
+          }
+        }
+        // 0.8s - 1.2s (0.64 <= t < 0.96): Pool pulses and grows very slightly
+        else if (t >= 0.64 && t < 0.96) {
+          if (dposLines.current.length > 0) {
+            dposLines.current.forEach(line => scene.remove(line));
+            dposLines.current = [];
+          }
+          
+          if (pool) {
+            pool.status = "FLASH_DEPOSIT";
+            const t_pulse = (t - 0.64) / 0.32;
+            const ease_pulse = Math.sin(t_pulse * Math.PI);
+            pool.scale = 1.0 + 0.05 * ease_pulse;
+          }
+        }
+        // 1.2s - 1.8s (t >= 0.96): Validators grow to stake-proportional sizes
+        else {
+          if (pool) {
+            pool.status = "ACTIVE";
+            pool.scale = 1.0;
+          }
+          
+          const t_grow = (t - 0.96) / 0.04; // 0 to 1
+          const ease_grow = t_grow * t_grow * (3 - 2 * t_grow);
+          
+          validators.forEach(v => {
+            const startScale = 0.45;
+            const endScale = 0.4 + (v.stake / 128) * 0.5;
+            v.scale = startScale + (endScale - startScale) * ease_grow;
+            v.status = "STAKED";
+          });
+        }
+      }
+      
+      // Step 2: Become Validator (12.5 to 25)
+      else if (currentProg >= 12.5 && currentProg < 25) {
+        if (dposLines.current.length > 0) {
+          dposLines.current.forEach(line => scene.remove(line));
+          dposLines.current = [];
+        }
+        validators.forEach(v => {
+          v.scale = 0.4 + (v.stake / 128) * 0.5;
+          v.status = "STAKED";
+        });
+      }
+      
+      // Step 3: Validator Selection (25 to 37.5)
+      else if (currentProg >= 25 && currentProg < 37.5) {
+        const t = (currentProg - 25) / 12.5;
+        
+        validators.forEach((v, idx) => {
+          v.scale = 0.4 + (v.stake / 128) * 0.5;
+          v.opacity = 1.0;
+          v.status = "STAKED";
+        });
+        
+        // Phase 3A: 0% to 75% step progress (25 to 34.3 prog) - Sweeping beam
+        if (t < 0.75) {
+          const t_sweep = t / 0.75;
+          const sweepAngle = t_sweep * Math.PI * 4; // 2 rotations
+          
+          const valAngles = [0, 1, 2, 3, 4, 5].map(i => (i / 6) * Math.PI * 2);
+          const stakes = [32, 64, 96, 128, 48, 80];
+          
+          let modulatedAngle = sweepAngle;
+          for (let i = 0; i < 6; i++) {
+            const stakeWeight = stakes[i] / 128;
+            modulatedAngle -= 0.22 * stakeWeight * Math.sin(sweepAngle - valAngles[i]);
+          }
+          
+          const poolPos = new THREE.Vector3(pool ? pool.x : 0, pool ? pool.y : 0.5, pool ? pool.z : 0);
+          const beamEnd = new THREE.Vector3(
+            3.5 * Math.cos(modulatedAngle),
+            0.35,
+            3.5 * Math.sin(modulatedAngle)
+          );
+          
+          if (!simState.current.selectionBeam && scene) {
+            const lineGeo = new THREE.BufferGeometry().setFromPoints([poolPos, beamEnd]);
+            const lineMat = new THREE.LineBasicMaterial({
+              color: 0x00d4b8,
+              linewidth: 2,
+              transparent: true,
+              opacity: 0.85
+            });
+            const line = new THREE.Line(lineGeo, lineMat);
+            scene.add(line);
+            simState.current.selectionBeam = line;
+          }
+          
+          if (simState.current.selectionBeam) {
+            const positions = [poolPos.x, poolPos.y, poolPos.z, beamEnd.x, beamEnd.y, beamEnd.z];
+            simState.current.selectionBeam.geometry.setAttribute(
+              'position',
+              new THREE.Float32BufferAttribute(positions, 3)
+            );
+            simState.current.selectionBeam.geometry.attributes.position.needsUpdate = true;
+          }
+          
+          // Highlight validators as selection scanning beam sweeps near them
+          validators.forEach((v, idx) => {
+            const angleDiff = Math.abs((modulatedAngle % (Math.PI * 2)) - valAngles[idx]);
+            if (angleDiff < 0.35 || angleDiff > (Math.PI * 2 - 0.35)) {
+              v.status = "ELIGIBLE";
+            } else {
+              v.status = "STAKED";
+            }
+          });
+        }
+        // Phase 3B: 75% to 90% step progress (34.3 to 36.2 prog) - Hard stop on VAL_04
+        else if (t >= 0.75 && t < 0.9) {
+          const targetAngle = (3 / 6) * Math.PI * 2; // angle for VAL_04
+          const poolPos = new THREE.Vector3(pool ? pool.x : 0, pool ? pool.y : 0.5, pool ? pool.z : 0);
+          const beamEnd = new THREE.Vector3(
+            3.5 * Math.cos(targetAngle),
+            0.35,
+            3.5 * Math.sin(targetAngle)
+          );
+          
+          if (simState.current.selectionBeam) {
+            const positions = [poolPos.x, poolPos.y, poolPos.z, beamEnd.x, beamEnd.y, beamEnd.z];
+            simState.current.selectionBeam.geometry.setAttribute(
+              'position',
+              new THREE.Float32BufferAttribute(positions, 3)
+            );
+            simState.current.selectionBeam.geometry.attributes.position.needsUpdate = true;
+          }
+          
+          validators[3].status = "ELIGIBLE";
+        }
+        // Phase 3C: 90% to 100% step progress (36.2 to 37.5 prog) - Selected pop & ring pulse
+        else {
+          if (simState.current.selectionBeam) {
+            scene.remove(simState.current.selectionBeam);
+            simState.current.selectionBeam = null;
+          }
+          
+          const t_pop = (t - 0.9) / 0.1;
+          const ease_pop = Math.sin(t_pop * Math.PI);
+          const baseScale = 0.4 + (validators[3].stake / 128) * 0.5;
+          validators[3].scale = baseScale * (1.0 + 0.15 * ease_pop);
+          validators[3].status = "SELECTED";
+          validators[3].isWinner = true;
+          
+          if (!simState.current.posWinnerPulseFired && scene) {
+            simState.current.posWinnerPulseFired = true;
+            const ringGeo = new THREE.RingGeometry(0.5, 1.2, 32);
+            const ringMat = new THREE.MeshBasicMaterial({
+              color: 0x00d4b8,
+              side: THREE.DoubleSide,
+              transparent: true,
+              opacity: 0.8
+            });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.position.set(validators[3].x, validators[3].y, validators[3].z);
+            ring.rotation.x = Math.PI / 2;
+            scene.add(ring);
+            
+            threeParticles.current.push({
+              mesh: ring,
+              type: "sig-pulse",
+              life: 1.0,
+              decay: 0.04 * speed
+            });
+          }
+          
+          validators.forEach((v, idx) => {
+            if (idx !== 3) {
+              v.opacity = 0.7;
+            }
+          });
+        }
+      }
+      
+      // Step 4: Block Proposal (37.5 to 50)
+      else if (currentProg >= 37.5 && currentProg < 50) {
+        const t = (currentProg - 37.5) / 12.5;
+        
+        if (simState.current.selectionBeam) {
+          scene.remove(simState.current.selectionBeam);
+          simState.current.selectionBeam = null;
         }
         
         validators.forEach((v, idx) => {
-          v.isWinner = idx === 2
-          v.status = idx === 2 ? "PROPOSER" : "COMMITTEE"
-          v.role = idx === 2 ? "SLOT_LEADER" : "ATTESTER"
-        })
-
-        const proposer = validators.find(v => v.isWinner)
-        if (proposer && frame % 30 === 0 && isPlaying) {
-          spawn3DParticle(new THREE.Vector3(proposer.x, proposer.y, proposer.z), new THREE.Vector3(pool.x, pool.y, pool.z), colorHex, "proposed-block")
+          v.scale = 0.4 + (v.stake / 128) * 0.5;
+          if (idx === 3) {
+            v.status = "PROPOSER";
+            v.isWinner = true;
+            v.opacity = 1.0;
+          } else {
+            v.status = "STAKED";
+            v.opacity = 0.7;
+          }
+        });
+        
+        // Phase 4A: 0% to 48% step progress (37.5 to 43.5 prog) - Block materialization
+        if (t < 0.48) {
+          const t_scale = t / 0.48;
+          const ease_scale = t_scale * t_scale * (3 - 2 * t_scale);
+          
+          if (!simState.current.posBlock && scene) {
+            const blockGeom = createRoundedBoxGeometry(0.5, 0.5, 0.5, 0.08, 4);
+            const blockMat = new THREE.MeshStandardMaterial({
+              color: 0x00d4b8,
+              emissive: 0x00d4b8,
+              emissiveIntensity: 0.6,
+              roughness: 0.3,
+              metalness: 0.8
+            });
+            const blockMesh = new THREE.Mesh(blockGeom, blockMat);
+            blockMesh.position.set(validators[3].x, validators[3].y + 1.2, validators[3].z);
+            blockMesh.scale.set(0, 0, 0);
+            scene.add(blockMesh);
+            simState.current.posBlock = blockMesh;
+          }
+          
+          if (simState.current.posBlock) {
+            simState.current.posBlock.scale.set(ease_scale, ease_scale, ease_scale);
+          }
         }
-      } else if (currentProg >= 50 && currentProg < 62.5) {
-        if (frame % 20 === 0 && isPlaying) {
-          validators.forEach(v => {
-            if (!v.isWinner) {
-              spawn3DParticle(new THREE.Vector3(v.x, v.y, v.z), new THREE.Vector3(pool.x, pool.y, pool.z), 0x10b981, "attestation")
-            }
-          })
+        // Phase 4B: 48% to 100% step progress (43.5 to 50 prog) - Block travels to ledger chain
+        else {
+          const t_travel = (t - 0.48) / 0.52;
+          const ease_travel = t_travel * t_travel * (3 - 2 * t_travel);
+          
+          const startPos = new THREE.Vector3(validators[3].x, validators[3].y + 1.2, validators[3].z);
+          const endPos = new THREE.Vector3(-1.8, -1.5, -3.2);
+          
+          if (simState.current.posBlock) {
+            simState.current.posBlock.position.lerpVectors(startPos, endPos, ease_travel);
+            
+            const brightTeal = new THREE.Color(0x00d4b8);
+            const deepTeal = new THREE.Color(0x0a9c86);
+            simState.current.posBlock.material.color.lerpColors(brightTeal, deepTeal, ease_travel);
+            simState.current.posBlock.material.emissive.lerpColors(brightTeal, deepTeal, ease_travel);
+            simState.current.posBlock.material.emissiveIntensity = 0.6 - 0.45 * ease_travel;
+            
+            simState.current.posBlock.userData = { producerLabel: "VAL_04" };
+          }
         }
       }
-
-      // POS Slashing Attack Animation
-      if (activeAttack === "nothingAtStake" && currentProg >= 70) {
-        const badVal = validators.find(n => n.id === "val-2")
-        if (badVal) {
-          badVal.isSlashed = true
-          badVal.status = "SLASHED"
-          badVal.role = "BANNED"
-          badVal.stake = 16
-
-          // Jagged lightning line effect
-          if (lightningMesh.current) {
-            scene.remove(lightningMesh.current)
-            lightningMesh.current.geometry.dispose()
-            lightningMesh.current.material.dispose()
-            lightningMesh.current = null
+      
+      // Step 5: Validator Attestation (50 to 62.5) & Step 6: Consensus (62.5 to 75)
+      else if (currentProg >= 50 && currentProg < 75) {
+        const t = (currentProg - 50) / 25;
+        
+        validators.forEach((v, idx) => {
+          v.scale = 0.4 + (v.stake / 128) * 0.5;
+          if (idx === 3) {
+            v.status = "PROPOSER";
+            v.isWinner = true;
+            v.opacity = 1.0;
+          } else {
+            v.opacity = 0.7;
           }
+        });
 
-          if (frame % 6 < 4) {
-            const points = []
-            const segs = 6
-            for (let i = 0; i <= segs; i++) {
-              const t = i / segs
-              const ly = 5.0 + (badVal.y - 5.0) * t
-              const lx = badVal.x + (t > 0 && t < 1 ? (Math.random() - 0.5) * 0.4 : 0)
-              const lz = badVal.z + (t > 0 && t < 1 ? (Math.random() - 0.5) * 0.4 : 0)
-              points.push(new THREE.Vector3(lx, ly, lz))
+        if (simState.current.posBlock) {
+          simState.current.posBlock.position.set(-1.8, -1.5, -3.2);
+          simState.current.posBlock.material.color.setHex(0x0a9c86);
+          simState.current.posBlock.material.emissive.setHex(0x0a9c86);
+          simState.current.posBlock.material.emissiveIntensity = 0.15;
+        }
+
+        const attesters = [
+          { idx: 0, start: 0.05, end: 0.35 },
+          { idx: 1, start: 0.12, end: 0.42 },
+          { idx: 2, start: 0.20, end: 0.50 },
+          { idx: 4, start: 0.28, end: 0.58 },
+          { idx: 5, start: 0.35, end: 0.65 }
+        ];
+        
+        attesters.forEach(att => {
+          const val = validators[att.idx];
+          if (t >= att.start && t < att.end) {
+            val.status = "ATTESTING";
+            val.opacity = 1.0;
+            
+            if (frame % 15 === 0 && isPlaying) {
+              const startPos = new THREE.Vector3(val.x, val.y, val.z);
+              const endPos = new THREE.Vector3(-1.8, -1.5, -3.2);
+              spawn3DParticle(startPos, endPos, 0x4a90e2, "attestation-cast");
             }
-            const lineGeo = new THREE.BufferGeometry().setFromPoints(points)
-            const lineMat = new THREE.LineBasicMaterial({ color: 0xf43f5e, linewidth: 2 })
-            const line = new THREE.Line(lineGeo, lineMat)
-            scene.add(line)
-            lightningMesh.current = line
+          } else {
+            if (t >= att.end) {
+              val.status = "STAKED";
+              val.opacity = 0.85;
+            } else {
+              val.status = "STAKED";
+            }
           }
+        });
+      }
+      
+      // Step 7: Finalization (75 to 87.5)
+      else if (currentProg >= 75 && currentProg < 87.5) {
+        const t = (currentProg - 75) / 12.5;
+        
+        validators.forEach((v, idx) => {
+          v.scale = 0.4 + (v.stake / 128) * 0.5;
+          v.status = "STAKED";
+          v.opacity = 1.0;
+          v.isWinner = false;
+        });
 
-          // Sparks eruption from validator
-          if (frame % 2 === 0 && isPlaying) {
-            spawnHashingSpark(new THREE.Vector3(badVal.x, badVal.y, badVal.z))
+        if (simState.current.posBlock) {
+          simState.current.posBlock.position.set(-1.8, -1.5, -3.2);
+          simState.current.posBlock.material.color.setHex(0x0a9c86);
+          simState.current.posBlock.material.emissive.setHex(0x0a9c86);
+          simState.current.posBlock.material.emissiveIntensity = 0.15;
+          
+          if (!simState.current.posBlockGlowCreated && scene) {
+            simState.current.posBlockGlowCreated = true;
+            
+            const glowGeo = new THREE.BoxGeometry(0.58, 0.58, 0.58);
+            const glowMat = new THREE.MeshBasicMaterial({
+              color: 0x00d4b8,
+              wireframe: true,
+              transparent: true,
+              opacity: 0.45
+            });
+            const glowMesh = new THREE.Mesh(glowGeo, glowMat);
+            glowMesh.position.copy(simState.current.posBlock.position);
+            scene.add(glowMesh);
+            simState.current.posBlockGlow = glowMesh;
+          }
+        }
+      }
+      
+      // Step 8: Rewards / Slashing (87.5 to 100)
+      else if (currentProg >= 87.5 && currentProg <= 100) {
+        const t = (currentProg - 87.5) / 12.5;
+        
+        if (simState.current.posBlockGlow) {
+          scene.remove(simState.current.posBlockGlow);
+          simState.current.posBlockGlow = null;
+        }
+
+        if (dposLines.current.length > 0 && t < 0.96) {
+          dposLines.current.forEach(line => scene.remove(line));
+          dposLines.current = [];
+        }
+
+        validators[3].status = "STAKED";
+        validators[3].opacity = 1.0;
+
+        // Phase 8A: 0% to 32% step progress (87.5 to 91.5 prog) - Flash red misbehavior penalty
+        if (t < 0.32) {
+          validators[1].status = "SLASHED";
+          validators[1].scale = 0.4 + (validators[1].stake / 128) * 0.5;
+        }
+        // Phase 8B: 32% to 96% step progress (91.5 to 99.5 prog) - Shrink and turn grey
+        else if (t >= 0.32 && t < 0.96) {
+          const t_shrink = (t - 0.32) / 0.64;
+          const ease_shrink = t_shrink * t_shrink;
+          
+          const startScale = 0.4 + (64 / 128) * 0.5;
+          const targetScale = 0.35;
+          
+          validators[1].scale = startScale + (targetScale - startScale) * ease_shrink;
+          validators[1].status = "SLASHED_GREY";
+          validators[1].stake = 64 - Math.floor(t_shrink * 48);
+        }
+        // Phase 8C: 96% to 100% step progress (99.5 to 100 prog) - Value leaving system
+        else {
+          validators[1].scale = 0.35;
+          validators[1].status = "SLASHED_GREY";
+          validators[1].stake = 16;
+          
+          const t_line = (t - 0.96) / 0.04;
+          
+          if (dposLines.current.length === 0 && scene && pool) {
+            const poolPos = new THREE.Vector3(pool.x, pool.y, pool.z);
+            const outPos = new THREE.Vector3(0, 3.0, 0);
+            const redLine = createThickLine(poolPos, outPos, 0.025, 0xe24a4a, 0.9);
+            scene.add(redLine);
+            dposLines.current.push(redLine);
+          }
+          
+          if (dposLines.current.length > 0) {
+            dposLines.current.forEach(line => {
+              line.position.y = 0.5 + t_line * 2.5;
+              if (line.material) {
+                line.material.opacity = Math.max(0, 0.9 * (1.0 - t_line));
+              }
+            });
           }
         }
       }
@@ -2907,7 +3349,7 @@ export default function SimulationEngine() {
     }
   }
 
-  const renderDposBlockLabels = () => {
+  const renderBlockLabels = () => {
     if (!threeCamera.current || !blockchainGroup.current || !canvasRef.current) return null;
     const canvas = canvasRef.current;
     const containerWidth = canvas.clientWidth;
@@ -2924,7 +3366,8 @@ export default function SimulationEngine() {
         const isVisible = tempV.z <= 1.0 && screenX >= 0 && screenX <= containerWidth && screenY >= 0 && screenY <= containerHeight;
         
         if (isVisible) {
-          let producer = child.userData.producerLabel || "DEL_02";
+          const defaultLabel = selectedAlgo === "pos" ? "VAL_04" : "DEL_02";
+          let producer = child.userData.producerLabel || defaultLabel;
           labels.push(
             <div
               key={`block-label-${idx}`}
@@ -2944,14 +3387,16 @@ export default function SimulationEngine() {
     });
     
     // 2. Active animating block in Step 3/4
-    if (simState.current.dposBlock) {
-      const tempV = new THREE.Vector3().copy(simState.current.dposBlock.position);
+    const activeBlock = selectedAlgo === "pos" ? simState.current.posBlock : simState.current.dposBlock;
+    if (activeBlock) {
+      const tempV = new THREE.Vector3().copy(activeBlock.position);
       tempV.project(threeCamera.current);
       const screenX = (tempV.x * 0.5 + 0.5) * containerWidth;
       const screenY = (tempV.y * -0.5 + 0.5) * containerHeight;
       const isVisible = tempV.z <= 1.0 && screenX >= 0 && screenX <= containerWidth && screenY >= 0 && screenY <= containerHeight;
       
       if (isVisible) {
+        const proposerLabel = selectedAlgo === "pos" ? "VAL_04" : "DEL_02";
         labels.push(
           <div
             key="block-label-animating"
@@ -2962,7 +3407,7 @@ export default function SimulationEngine() {
             }}
           >
             <div className="px-1.5 py-0.5 bg-slate-900/90 border border-emerald-500/40 rounded text-[7.5px] font-mono font-extrabold text-emerald-450 tracking-wider shadow-md uppercase animate-pulse">
-              DEL_02
+              {proposerLabel}
             </div>
           </div>
         );
@@ -3017,8 +3462,8 @@ export default function SimulationEngine() {
             )}
           </div>
         ))}
-        {/* Render block labels for DPoS blocks in blockchainGroup */}
-        {selectedAlgo === "dpos" && renderDposBlockLabels()}
+        {/* Render block labels for DPoS or PoS blocks in blockchainGroup */}
+        {(selectedAlgo === "dpos" || selectedAlgo === "pos") && renderBlockLabels()}
       </div>
 
       {/* Floating Protocol Inspector Overlay HUD */}
